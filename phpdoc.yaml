@@ -12,7 +12,8 @@ doc: |
     - geometry qui gère la géométrie WKT/GeoJSON
 journal: |
   30/7/2018
-    reprise du code, création d'un git
+    - reprise du code, création d'un git
+    - remplacement de featurewkt.inc.php par feature.inc.php
   15/12/2016
     Ajout de la projection UTM dans les systèmes de coordonnées
     Passage de coordsys.inc.php en V2
@@ -28,5 +29,5 @@ phpScripts:
 phpIncludes:
   - /ogr2php/ogr2php.inc.php
   - /ogr2php/ogriter.inc.php
-  - /ogr2php/featurewkt.inc.php
+  - /ogr2php/feature.inc.php
   - /ogr2php/sqlloader.inc.php

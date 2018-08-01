@@ -1,202 +1,165 @@
 <?php
 /*PhpDoc:
 name:  ogr2php.inc.php
-title: ogr2php.inc.php - Interface OGR en Php
-includes: [ ogriter.inc.php ]
+title: ogr2php.inc.php - Itérateur sur les objets OGR
+includes: [ feature.inc.php, ogrinfo.inc.php ]
 classes:
 doc: |
-  La classe Ogr2Php fournit une interface OGR en Php ;
-  elle permet d'obtenir diverses informations sur une couche SHP ou TAB (projection, nbre d'objets, champs, ...)
-  et d'accéder aux objets contenus dans la couche.
+  La classe Ogr2Php permet d'itérer sur les objets d'une source Ogr en renvoyant des Feature.
+  Cette lecture s'effectue en générant une commande transformant la source en GeoJSON
+  et en interprétant ce GeoJSON.
 journal: |
-  18/12/2016
-  - amélioration pour lire Natural Earth
-  17/7/2016
-  - amélioration
-  29/5/2016
-  - première version
+  1/8/2018
+    - refonte complète
+    - remplacement de l'inclusion de featurewkt.inc.php par feature.inc.php
+    - chgt de nom en Ogr2Php
+    - lecture Ogr au travers de ogr2ogr produisant du GeoJSON
 */
-require_once 'ogriter.inc.php';
+require_once __DIR__.'/ogrinfo.inc.php';
+require_once __DIR__.'/feature.inc.php';
 
 /*PhpDoc: classes
 name:  Class Ogr2Php
-title: Class Ogr2Php
+title: Class Ogr2php implements Iterator - Itérateur sur les objets OGR
 methods:
 doc: |
-  Exécute une commande orginfo sur un fichier TAB/SHP
-  Analyse le listage retourné et le fournit sous forme structurée
-journal: |
-  17/7/2016
-  - rajout d'un niveau de profondeur pour PROJCS
-  29/5/2016
-  - première version
+  Exécution d'un Ierator:
+    __construct()
+    rewind(): void
+    valid(): bool
+    current(): Elt
+    key(): Key
+    next(): void
+    -> valid
 */
-Class Ogr2Php {
-  private $error;
-  private $filename;
-  private $driver;
-  private $layername;
-  private $geometry;
-  private $featureCount;
-  private $extent;
-  private $projcs;
-  private $encoding=null;
-  private $fields;
+
+Class Ogr2php implements Iterator {
+  private $path; // le chemin du fichier
+  private $handle=null; // handle sur le pipe en sortie de la comande ogr2ogr
+  private $cfeature=null; // le feature courant lu par readOneFeature()
+  private $count=0; // compteur du nbre de feature lus à partir de 0
   
-/*PhpDoc: methods
-name:  __construct
-title: function __construct($path, $encoding) - création d'un objet Ogr2Php représentant une couche
-doc: |
-  Prend en paramètre le chemin complet du fichier SHP ou TAB ou un chemin relatif par rapport au répertoire courant
-  ainsi que l'encodage des champs des objets ('UTF-8' ou 'ISO-8859-1').
-   En cas d'erreur, l'objet Ogr2Php est créé avec le message d'erreur.
-  En cas de code à améliorer, une exception est générée.
-*/
-  function __construct($path, $encoding=null) {
-    if ($encoding)
-      $this->encoding = $encoding;
-    $basename = basename($path);
-    if (($pos=strrpos($basename, '.')) == FALSE) {
-      $this->error = "BAD BASENAME - impossible de distinguer le nom de base de l'extension";
+  /*PhpDoc: methods
+  name:  __construct
+  title: function __construct(string $path, string $encoding='') - création de l'itérateur
+  */
+  function __construct(string $path, string $encoding='') {
+    //echo "Ogr2php::__construct()<br>\n";
+    $this->path = $path;
+  }
+  
+  /*PhpDoc: methods
+  name:  rewind
+  title: function rewind() - Ouvre le pipe et lit l'en-tête
+  */
+  function rewind() {
+    //echo "Ogr2php::rewind()<br>\n";
+    $ogrcmde = "ogr2ogr -f GeoJSON -t_srs EPSG:4326 /vsistdout/ ".$this->path;
+    $this->handle = popen($ogrcmde, 'r');
+    $this->buff = fgets($this->handle);
+    //echo "<pre>$this->buff</pre>\n";
+    $this->buff = fgets($this->handle);
+    //echo "<pre>$this->buff</pre>\n";
+    $this->buff = fgets($this->handle);
+    //echo "<pre>$this->buff</pre>\n";
+    $this->buff = fgets($this->handle);
+    //echo "<pre>$this->buff</pre>\n";
+    $this->count = 0;
+    $this->readOneFeature();
+  }
+  
+  /*PhpDoc: methods
+  name:  readOneFeature
+  title: private function readOneFeature() - Lit un Feature dans le fichier et le copie dans $this->cfeature
+  doc: |
+    En fin de fichier, $this->cfeature = null;
+  */
+  private function readOneFeature() {
+    //echo "Ogr2php::readOneFeature()<br>\n";
+    $buff = fgets($this->handle);
+    if (($buff == false) || (strncmp($buff, '{ "type": "Feature",', 20)<>0)) {
+      $this->cfeature = null;
+      pclose($this->handle);
+      $this->handle = null;
       return;
     }
-    $layer = substr($basename, 0, $pos);
-//    $ogrinfo = (getenv('os') ? "c:\\\"Program files\"\\FWTools2.4.7\\bin\\ogrinfo.exe" : 'ogrinfo');
-    $ogrinfo = (getenv('os') ? "\\usbgis\\apps\\FWTools\\bin\\ogrinfo.exe" : 'ogrinfo');
-//    echo "$ogrinfo -so $path $layer\n";
-    exec("$ogrinfo -so $path $layer", $output, $return);
-    if ($return) {
-      $this->error = "BAD OGRINFO - Execution de ogrinfo incorrecte, code retour = $return";
-      return;
-    }
-    $this->error = null;
-    $output = implode("\n", $output);
-    $pat1 = '[^\[\]]*'; // chaine sans [ ni ]
-    $pattern = '!^'
-              .'(Had to open data source read-only.)?\s*'
-              ."INFO: Open of `([^']*)'\s*"
-              ."using driver `([^']*)' successful.\s*"
-              .'Layer name: ([a-zA-Z0-9_]*)\s*'
-              .'Geometry: (Unknown \(any\)|3D Point|Point|Line String|3D Line String|Polygon|3D Polygon)\s*'
-              .'Feature Count: (\d+)\s*'
-              .'Extent: \((-?\d+\.\d+), (-?\d+\.\d+)\) - \((-?\d+\.\d+), (-?\d+\.\d+)\)\s*'
-              .'Layer SRS WKT:\s*'
-              ."((PROJCS|GEOGCS)\[$pat1(\[$pat1(\[$pat1(\[$pat1(\[$pat1\]$pat1)*\]$pat1)*\]$pat1)*\]$pat1)*\]\s*)"
-              .'(([^:]+: (Integer|String|Real|Date) \(\d+\.\d+\)\s*)*)'
-              .'$!';
-/*
-*/
-//              .'!';
-    if (!preg_match($pattern, $output, $matches)) {
-      echo "no match sur:\n<pre>$output</pre>\n";
-      throw new Exception("don't match ligne ".__LINE__);
-    }
-    if ($output = preg_replace($pattern, '', $output)) {
-      echo "Reste:\n<pre>$output</pre>\n";
-      throw new Exception("Erreur ligne ".__LINE__);
-    }
-//    echo "<pre>matches="; print_r($matches); echo "</pre>\n";
-    $this->filename = $matches[2];
-    $this->driver = $matches[3];
-    $this->layername = $matches[4];
-    $this->geometry = $matches[5];
-    $this->featureCount = $matches[6];
-    $this->extent = [ 'xmin'=> $matches[7],  'ymin'=> $matches[8],  'xmax'=> $matches[9],  'ymax'=> $matches[10]];
-    $this->projcs = $matches[11];
-    $fields = $matches[17];
-//    echo "fields=$fields\n";
-    $this->fields = [];
-    $pattern = '!^([^:]+): (Integer|String|Real|Date) \((\d+)\.(\d+)\)\s*!';
-    while (preg_match($pattern, $fields, $matches)) {
-//      echo "<pre>matches="; print_r($matches); echo "</pre>";
-      switch($matches[2]) {
-        case 'Integer' :
-        case 'Date' :
-          $type = $matches[2]; break;
-        case 'String' :
-          $type = "$matches[2]($matches[3])"; break;
-        case 'Real' :
-          $type = "$matches[2]($matches[3].$matches[4])"; break;
-        default:
-          throw new Exception("type $matches[2] non reconnu ligne ".__LINE__);
-      }
-      $this->fields[] = ['name'=>$matches[1], 'type'=>$type];
-      $fields = preg_replace($pattern, '', $fields, 1);
-    }
-    if ($fields)
-//      die("fields=\"$fields\" ligne ".__LINE__."\n");
-      throw new Exception("fields=\"$fields\" ligne ".__LINE__."\n");
+    $buff = trim($buff);
+    $len = strlen($buff);
+    if (substr($buff, $len-1, 1)==',')
+      $buff = substr($buff, 0, $len-1);
+    $this->cfeature = new Feature($buff);
+  }
+  
+  /*PhpDoc: methods
+  name:  valid
+  title: function valid() - valid ssi feature courant non null
+  */
+  function valid(): bool {
+    //echo "Ogr2php::valid()<br>\n";
+    return ($this->cfeature != null);
+  }
+  
+  /*PhpDoc: methods
+  name:  current
+  title: function current() - renvoie le feature courant
+  */
+  function current() {
+    //echo "Ogr2php::current()<br>\n";
+    return $this->cfeature;
+  }
+  
+  /*PhpDoc: methods
+  name:  next
+  title: function next() - Lit le feature suivant
+  */
+  function next() {
+    //echo "Ogr2php::next()<br>\n";
+    $this->readOneFeature();
+    $this->count++;
   }
   
 /*PhpDoc: methods
-name:  error
-title: function error() - indique si une erreur s'est produite et dans ce cas retourne le message correspondant
-doc: |
-  Retourne null s'il n'y a pas d'erreur.
+name:  key
+title: function key() - renvoie la clef courante
 */
-  function error() { return $this->error; }
-  
-/*PhpDoc: methods
-name:  info
-title: function info($name=null) - retourne les infos sur la couche ou un champ particulier
-*/
-  function info($name=null) {
-    if ($this->error)
-      return ['error'=>$this->error];
-    elseif ($name)
-      return $this->$name;
-    else
-      return [
-        'filename' => $this->filename,
-        'driver' => $this->driver,
-        'layername' => $this->layername,
-        'geometry' => $this->geometry,
-        'featureCount' => $this->featureCount,
-        'extent' => $this->extent,
-        'projcs' => $this->projcs,
-        'encoding' => $this->encoding,
-        'fields' => $this->fields,
-      ];
+  function key() {
+    //echo "Ogr2php::key()<br>\n";
+    return $this->count;
   }
-  
-/*PhpDoc: methods
-name:  features
-title: function features() - retourne un itérateur sur les objets de la couche
-*/
-  function features() {
-    return new OgrIter($this);
-  }
-}
+};
 
 
 if (basename(__FILE__)<>basename($_SERVER['PHP_SELF'])) return;
+echo "<!DOCTYPE HTML><html><head><meta charset='UTF-8'><title>ogr2php</title></head><body>\n";
 
-require_once 'coordsys.inc.php';
 
-if (getenv('os')) {
-  $route500 = 'P:/geodata-met/Route500-ED151/';
-  $bdcarthage = 'P:/geodata-met/BDCARTHAGE/';
-  $geobases = 'P:/xampp/htdocs/www/geobases/';
-} else {
-  $route500 = '/home/bdavid/geodata/ROUTE500_2-0__SHP_LAMB93_FXX_2015-08-01/ROUTE500/'
-             .'1_DONNEES_LIVRAISON_2015/R500_2-0_SHP_LAMB93_FR-ED151/';
-  $bdcarthage = '/home/bdavid/geodata/BDCARTHAGE/';
-  $geobases = '/home/bdavid/www/geobases/';
+if (!isset($_GET['path'])) {
+  $route500 = '/var/www/html/data/route500/ROUTE500_2-1__SHP_LAMB93_FXX_2018-04-09/ROUTE500'
+      .'/1_DONNEES_LIVRAISON_2018-04-00189/R500_2-1_SHP_LAMB93_FXX-ED181';
+  foreach ([
+    'Route500 - COMMUNE' => "$route500/ADMINISTRATIF/COMMUNE.shp",
+    'Route500 - LIMITE_ADMINISTRATIVE' => "$route500/ADMINISTRATIF/LIMITE_ADMINISTRATIVE.shp",
+    'Route500 - TRONCON_ROUTE' => "$route500/RESEAU_ROUTIER/TRONCON_ROUTE.shp",
+    'Route500 - NOEUD_ROUTIER' => "$route500/RESEAU_ROUTIER/NOEUD_ROUTIER.shp",
+    'Route500 - COMMUNICATION_RESTREINTE' => "$route500/RESEAU_ROUTIER/COMMUNICATION_RESTREINTE.shp",
+    'Route500 - NOEUD_COMMUNE' => "$route500/RESEAU_ROUTIER/NOEUD_COMMUNE.shp",
+    'Route500 - AERODROME' => "$route500/RESEAU_ROUTIER/AERODROME.shp",
+    'Route500 - AERODROME' => "$route500/RESEAU_ROUTIER/AERODROME.shp",
+    'Route500 - TRONCON_VOIE_FERREE' => "$route500/RESEAU_FERRE/TRONCON_VOIE_FERREE.shp",
+    'Route500 - NOEUD_FERRE' => "$route500/RESEAU_FERRE/NOEUD_FERRE.shp",
+    'Route500 - TRONCON_HYDROGRAPHIQUE' => "$route500/HABILLAGE/TRONCON_HYDROGRAPHIQUE.shp",
+    'Route500 - ZONE_OCCUPATION_SOL' => "$route500/HABILLAGE/ZONE_OCCUPATION_SOL.shp",
+  ] as $name => $path)
+    echo "<a href='?path=",urlencode($path),"'>$name</a><br>\n";
+  die();
 }
 
-foreach ([
-//    $route500.'HABILLAGE/TRONCON_HYDROGRAPHIQUE.SHP',
-//    $bdcarthage.'HYDROGRAPHIE_SURFACIQUE.SHP',
-    $geobases.'009/RISQUE/N_ZONAGES_RISQUE_NATUREL/20140001/N_ZONE_REG_PPRN_20140001_S_009.TAB',
-//    $geobases.'041/RISQUE/N_ZONAGES_RISQUE_NATUREL/20100001/N_ZONE_REG_PPRN_20100001_S_041.TAB',
-//    '/home/bdavid/www/geobases/083/RISQUE/N_ZONAGES_RISQUE_NATUREL/20030010/N_ZONE_REG_PPRN_20030010_S_083.TAB',
-//    'xx.tab',
-//    'xx',
-  ] as $path) {
-    echo "$path<br>\n";
-    $ogr = new Ogr2Php($path);
-//    echo "<pre>ogrInfo="; print_r($ogr->info()); echo "</pre>\n";
-    echo "<pre>projcs=",$ogr->info('projcs'),"</pre>\n";
-    echo "<pre>detect=",CoordSys::detect($ogr->info('projcs')),"</pre>\n";
-    
+$ogr = new Ogr2Php($_GET['path'], 'ISO-8859-1');
+$nbre = 0;
+foreach ($ogr as $id => $feature) {
+  echo "feature: $id -> $feature<br>\n";
+//  echo "feature="; print_r($feature);
+  //printf("memory_get_usage=%.1f\n",memory_get_usage ()/1024);
+  if ($nbre++ > 20) die("nbre > 20");
 }
+die("Fin de la lecture des objets\n");
