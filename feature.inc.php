@@ -10,6 +10,7 @@ journal: |
   - première version
 */
 require_once __DIR__.'/../geometry/inc.php';
+
 /*PhpDoc: classes
 name:  Feature
 title: class Feature - Définition d'un objet géographique composé d'une liste de champs et d'une géométrie
@@ -45,6 +46,12 @@ class Feature {
   title: function properties() { return $this->properties; }
   */
   function properties() { return $this->properties; }
+  
+  /*PhpDoc: methods
+  name:  properties
+  title: function property()
+  */
+  function property(string $name) { return $this->properties[$name]; }
   
   /*PhpDoc: methods
   name:  wkt

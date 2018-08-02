@@ -37,6 +37,8 @@ journal: |
 require_once __DIR__.'/ogr2php.inc.php';
 require_once __DIR__.'/../geom2d/geom2d.inc.php';
 
+ini_set('memory_limit', '1280M');
+
 /*PhpDoc: functions
 name: list_shpfiles
 title: function list_shpfiles($ppath, $dirpath='') - balaie récursivement le répertoire pour retourner la liste des shp files

@@ -2,8 +2,8 @@
 /*PhpDoc:
 name: sqlloader2.inc.php
 title: sqlloader2.inc.php - module V2 générique de chargement d'un produit dans une base MySQL
-includes: [ ogr2php.inc.php, '../geom2d/geom2d.inc.php', '../phplib/srvr_name.inc.php' ]
-functions:
+includes: [ ogr2php.inc.php ]
+classes:
 doc: |
   La fonction sqlloader() met en oeuvre un chargeur SQL en fonction de paramètres du produit à charger
   Utilisation systématique du type Geometry
@@ -37,4 +37,204 @@ journal: |
     première version
 */
 require_once __DIR__.'/ogr2php.inc.php';
-require_once __DIR__.'/../geom2d/geom2d.inc.php';
+
+/*PhpDoc: classes
+name:  Feature
+title: class Feature - Définition d'un objet géographique composé d'une liste de champs et d'une géométrie
+methods:
+doc: |
+*/
+class SqlLoader {
+  static $sql_reserved_words = ['add','ignore'];
+
+  public $properties; // dictionnaire des champs
+  public $geometry; // objet Geometry
+  
+  // transformation du type Ogr en type SQL
+  static function sqltype(string $fieldtype): string {
+    if ($fieldtype=='Integer')
+      return 'integer';
+    if (preg_match('!^String\((\d+)\)$!', $fieldtype, $matches))
+      return "varchar($matches[1])";
+    if (preg_match('!^Real\((\d+)\.(\d+)\)$!', $fieldtype, $matches))
+      return "decimal($matches[1],$matches[2])";
+    throw new Exception("dans sqltype(), type '$fieldtype' inconnu");
+  }
+  
+  /*PhpDoc: methods
+  name: create_table
+  title: static function create_table($info, $tableDef, $suffix, $mysql_database) - instruction SQL create table
+  doc: |
+    $info correspond à $ogr->info()
+    $tableDef correspond à la définition des paramètres pour une table
+  */
+  static function create_table(OgrInfo $ogr, array $tableDef, string $suffix, string $mysql_database) {
+    $info = $ogr->info();
+    if (!isset($info['layername']))
+      throw new Exception("ogrinfo incorrect");
+    $mysql_database = ($mysql_database ? $mysql_database.'.' : '');
+    $table_name = strtolower($info['layername']).$suffix;
+    $sql = "drop table if exists $mysql_database$table_name;\n";
+    $sql .= "create table $mysql_database$table_name (\n";
+    $sqlfields = [];
+    if (isset($info['fields']))
+      foreach ($info['fields'] as $field) {
+  //    print_r($field);
+        $name = strtolower($field['name']);
+  // cas d'utilisation d'un mot-clé SQL comme nom de champ
+        if (in_array($name, self::$sql_reserved_words))
+          $name = "col_$name";
+        $sqlfields[] = "  $name ".self::sqltype($field['type']).' not null';
+      }
+    $sql .= implode(",\n",$sqlfields).",\n";
+    $sql .= "  geom Geometry not null\n";
+    $sql .= ")\n"
+         ."ENGINE = MYISAM\n"
+         ."DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;\n";
+    $sql .= "create spatial index ${table_name}_geom on $mysql_database$table_name(geom);\n";
+    if (isset($tableDef['indexes']) and $tableDef['indexes']) {
+      foreach ($tableDef['indexes'] as $index_fields=>$unique) {
+        $index_name = str_replace(',','_',$index_fields);
+        $sql .= "create ".($unique ? 'unique ':'')
+          ."index ${table_name}_${index_name} on $mysql_database$table_name($index_fields);\n";
+      }
+    }
+    return $sql;
+  }
+  
+  static function insert_into(Ogr2Php $ogr, array $table, string $suffix, string $mysql_database, int $precision, int $nbrmax=20): string {
+    $transaction = true; // utilisation des transactions
+    $transaction = false; // utilisation des transactions
+    $info = $ogr->info();
+    if (!isset($info['layername']))
+      throw new Exception("ogrinfo incorrect");
+    $mysql_database = ($mysql_database ? $mysql_database.'.' : '');
+    $table_name = strtolower($info['layername']).$suffix;
+    $fields = [];
+    foreach ($info['fields'] as $field) {
+      $name = strtolower($field['name']);
+      if (in_array($name, self::$sql_reserved_words))
+        $name = "col_$name";
+      $fields[$field['name']] = $name;
+    }
+    //Geometry::setParam('precision', $precision);
+    $sql = "truncate $mysql_database$table_name;\n";
+    if ($transaction)
+      echo "start transaction;\n";
+    $nbre = 0;
+    foreach ($ogr as $feature) {
+      $nbre++;
+      if ($transaction && ($nbre % 1000 == 0))
+        $sql .= "commit;\n";
+      if ($nbrmax && ($nbre > $nbrmax)) {
+        if ($transaction)
+          $sql .= "commit;\n";
+        $sql .= "-- Arrêt après $nbrmax\n";
+        return $sql;
+      }
+      //echo "feature=$feature\n";
+      $sql .= "insert into $mysql_database$table_name(".implode(',',$fields).",geom) values\n";
+      $values = [];
+      foreach ($fields as $propname => $field)
+        $values[] = '"'.str_replace('"','""',$feature->property($propname)).'"';
+      $sql .= "(".implode(',',$values);
+      $geom = $feature->geometry()->proj2D()->filter($precision);
+      $wkt = $geom->wkt();
+      $sql .= ",ST_GeomFromText('$wkt'));\n";
+    }
+    if ($transaction)
+      $sql .= "commit;\n";
+    return $sql;
+  }
+};
+
+
+if (basename(__FILE__)<>basename($_SERVER['PHP_SELF'])) return;
+
+if (php_sapi_name()<>'cli') {
+  ini_set('max_execution_time', 600);
+  echo "<!DOCTYPE HTML><html><head><meta charset='UTF-8'><title>sqlooader2</title></head><body><pre>\n";
+}
+ini_set('memory_limit', '1280M');
+
+require_once '../yamldoc/inc.php';
+
+Store::setStoreid('docs');
+$route500 = new_doc('geodata/route500');
+
+if (php_sapi_name() == 'cli') {
+  if ($argc <= 1) {
+    //echo "argc=$argc\n";
+    //print_r($argv);
+    echo "usage: $argv[0] <cmde> [<layer>]\n";
+    echo "où <cmde> vaut:\n";
+    echo "  yaml\n";
+    echo "  ogrinfo\n";
+    echo "  create_table\n";
+    echo "  insert_into\n";
+    die();
+  }
+  elseif (($argc == 2) && ($argv[1] <> 'yaml')) {
+    echo "usage: $argv[0] $argv[1] <layer>\n";
+    echo "où <layer> vaut:";
+    foreach ($route500->asArray()['layers'] as $lyrname => $layer) {
+      if (isset($layer['path']))
+        echo "  $lyrname pour $layer[title]\n";
+    }
+    die();
+  }
+  else {
+    $action = $argv[1];
+    $lyrname = isset($argv[2]) ? $argv[2] : null;
+  }
+}
+else { // php_sapi_name() != 'cli'
+  if (!isset($_GET['action'])) {
+    echo "</pre><h3>Actions possibles:</h3>\n";
+    foreach(['yaml','ogrinfo','create_table','insert_into'] as $action)
+      echo "<a href='?action=$action'>$action<br>";
+    die();
+  }
+  elseif (($_GET['action'] <> 'yaml') && !isset($_GET['layer'])) {
+    echo "</pre><h3>$_GET[action] sur quelle couche ?</h3>\n";
+    foreach ($route500->asArray()['layers'] as $lyrname => $layer) {
+      if (isset($layer['path']))
+        echo "<a href='?action=$_GET[action]&amp;layer=$lyrname'>$layer[title]</a><br>\n";
+    }
+    die();
+  }
+  $action = $_GET['action'];
+  $lyrname = isset($_GET['layer']) ? $_GET['layer'] : null;
+}
+
+switch ($action) {
+  case 'yaml':
+    echo "route500=",$route500->yaml('');
+    die("Fin ligne ".__LINE__."\n");
+    
+  case 'ogrinfo':
+    $tableDef = $route500->asArray()['layers'][$lyrname];
+    $path = $route500->asArray()['dbpath'].'/'.$tableDef['path'];
+    //echo "path=$path\n";
+    $ogr = new OgrInfo($path, 'ISO-8859-1');
+    echo "ogrinfo="; print_r($ogr->info());
+    die("Fin ligne ".__LINE__."\n");
+    
+  case 'create_table':
+    $tableDef = $route500->asArray()['layers'][$lyrname];
+    $path = $route500->asArray()['dbpath'].'/'.$tableDef['path'];
+    $ogr = new OgrInfo($path, 'ISO-8859-1');
+    echo SqlLoader::create_table($ogr, $tableDef, '', '');
+    die("Fin ligne ".__LINE__."\n");
+  
+  case 'insert_into':
+    $tableDef = $route500->asArray()['layers'][$lyrname];
+    $path = $route500->asArray()['dbpath'].'/'.$tableDef['path'];
+    $ogr = new Ogr2Php($path, 'ISO-8859-1');
+    echo SqlLoader::insert_into($ogr, $tableDef, '', '', $route500->asArray()['precision'], 0);
+    die("Fin ligne ".__LINE__."\n");
+
+  default:
+    die("commande $action inconnue");
+}
+

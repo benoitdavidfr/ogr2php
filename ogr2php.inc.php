@@ -48,6 +48,11 @@ Class Ogr2php implements Iterator {
     $this->path = $path;
   }
   
+  function info(): array {
+    $ogrInfo = new OgrInfo($this->path, '');
+    return $ogrInfo->info();
+  }
+  
   /*PhpDoc: methods
   name:  rewind
   title: function rewind() - Ouvre le pipe et lit l'en-tête
