@@ -46,9 +46,7 @@ doc: |
 */
 class SqlLoader {
   static $sql_reserved_words = ['add','ignore'];
-
-  public $properties; // dictionnaire des champs
-  public $geometry; // objet Geometry
+  static $mysqli; // handle MySQL
   
   // transformation du type Ogr en type SQL
   static function sqltype(string $fieldtype): string {
@@ -68,14 +66,14 @@ class SqlLoader {
     $info correspond à $ogr->info()
     $tableDef correspond à la définition des paramètres pour une table
   */
-  static function create_table(OgrInfo $ogr, array $tableDef, string $suffix, string $mysql_database) {
+  static function create_table(OgrInfo $ogr, array $tableDef, string $suffix, string $mysql_database): array {
     $info = $ogr->info();
     if (!isset($info['layername']))
       throw new Exception("ogrinfo incorrect");
     $mysql_database = ($mysql_database ? $mysql_database.'.' : '');
     $table_name = strtolower($info['layername']).$suffix;
-    $sql = "drop table if exists $mysql_database$table_name;\n";
-    $sql .= "create table $mysql_database$table_name (\n";
+    $sqls[0] = "drop table if exists $mysql_database$table_name";
+    $sql = "create table $mysql_database$table_name (\n";
     $sqlfields = [];
     if (isset($info['fields']))
       foreach ($info['fields'] as $field) {
@@ -90,21 +88,22 @@ class SqlLoader {
     $sql .= "  geom Geometry not null\n";
     $sql .= ")\n"
          ."ENGINE = MYISAM\n"
-         ."DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;\n";
-    $sql .= "create spatial index ${table_name}_geom on $mysql_database$table_name(geom);\n";
+         ."DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci";
+    $sqls[] = $sql;
+    $sqls[] = "create spatial index ${table_name}_geom on $mysql_database$table_name(geom)";
     if (isset($tableDef['indexes']) and $tableDef['indexes']) {
       foreach ($tableDef['indexes'] as $index_fields=>$unique) {
         $index_name = str_replace(',','_',$index_fields);
-        $sql .= "create ".($unique ? 'unique ':'')
+        $sqls[] = "create ".($unique ? 'unique ':'')
           ."index ${table_name}_${index_name} on $mysql_database$table_name($index_fields);\n";
       }
     }
-    return $sql;
+    return $sqls;
   }
   
-  static function insert_into(Ogr2Php $ogr, array $table, string $suffix, string $mysql_database, int $precision, int $nbrmax=20): string {
+  static function insert_into(Ogr2Php $ogr, array $table, string $suffix, string $mysql_database, int $precision, int $nbrmax=20): array {
     $transaction = true; // utilisation des transactions
-    $transaction = false; // utilisation des transactions
+    //$transaction = false; // utilisation des transactions
     $info = $ogr->info();
     if (!isset($info['layername']))
       throw new Exception("ogrinfo incorrect");
@@ -118,33 +117,60 @@ class SqlLoader {
       $fields[$field['name']] = $name;
     }
     //Geometry::setParam('precision', $precision);
-    $sql = "truncate $mysql_database$table_name;\n";
+    $sqls = ["truncate $mysql_database$table_name"];
     if ($transaction)
-      echo "start transaction;\n";
+      $sqls[] = "start transaction";
     $nbre = 0;
     foreach ($ogr as $feature) {
       $nbre++;
       if ($transaction && ($nbre % 1000 == 0))
-        $sql .= "commit;\n";
+        $sqls[] = "commit";
       if ($nbrmax && ($nbre > $nbrmax)) {
         if ($transaction)
-          $sql .= "commit;\n";
-        $sql .= "-- Arrêt après $nbrmax\n";
-        return $sql;
+          $sqls[] .= "commit";
+        $sqls[] = "-- Arrêt après $nbrmax\n";
+        return $sqls;
       }
       //echo "feature=$feature\n";
-      $sql .= "insert into $mysql_database$table_name(".implode(',',$fields).",geom) values\n";
+      $sql = "insert into $mysql_database$table_name(".implode(',',$fields).",geom) values\n";
       $values = [];
       foreach ($fields as $propname => $field)
         $values[] = '"'.str_replace('"','""',$feature->property($propname)).'"';
       $sql .= "(".implode(',',$values);
       $geom = $feature->geometry()->proj2D()->filter($precision);
       $wkt = $geom->wkt();
-      $sql .= ",ST_GeomFromText('$wkt'));\n";
+      $sql .= ",ST_GeomFromText('$wkt'))";
+      if ($geom->isValid())
+        $sqls[] = $sql;
+      else
+        echo "-- invalid $sql\n";
     }
     if ($transaction)
-      $sql .= "commit;\n";
-    return $sql;
+      $sqls[] = "commit";
+    return $sqls;
+  }
+  
+  // ouvre une connexion avec MySQL, enregistre la variable en variable statique de classe et la renvoie
+  // param sous la forme mysql://{user}:{passwd}@{host}/{database}
+  static function openMySQL(string $param) {
+    if (!preg_match('!^mysql://([^:]+):([^@]+)@([^/]+)/(.*)$!', $param, $matches))
+      throw new Exception("param \"".$param."\" incorrect");
+    //print_r($matches);
+    self::$mysqli = new mysqli($matches[3], $matches[1], $matches[2], $matches[4]);
+    if (mysqli_connect_error())
+  // La ligne ci-dessous ne s'affiche pas correctement si le serveur est arrêté !!!
+  //    throw new Exception("Connexion MySQL impossible pour $server_name : ".mysqli_connect_error());
+      throw new Exception("Connexion MySQL impossible sur $param");
+    if (!self::$mysqli->set_charset ('utf8'))
+      throw new Exception("mysqli->set_charset() impossible : ".self::$mysqli->error);
+    return self::$mysqli;
+  }
+  
+  // exécute une requête MySQL, soulève une exception en cas d'erreur, renvoie le résultat
+  static function query(string $sql) {
+    if (!($result = self::$mysqli->query($sql)))
+      throw new Exception("Req. \"$sql\" invalide: ".self::$mysqli->error);
+    return $result;
   }
 };
 
@@ -172,11 +198,13 @@ if (php_sapi_name() == 'cli') {
     echo "  ogrinfo\n";
     echo "  create_table\n";
     echo "  insert_into\n";
+    echo "  load\n";
+    echo "  loadall\n";
     die();
   }
-  elseif (($argc == 2) && ($argv[1] <> 'yaml')) {
+  elseif (($argc == 2) && !in_array($argv[1], ['yaml','loadall'])) {
     echo "usage: $argv[0] $argv[1] <layer>\n";
-    echo "où <layer> vaut:";
+    echo "où <layer> vaut:\n";
     foreach ($route500->asArray()['layers'] as $lyrname => $layer) {
       if (isset($layer['path']))
         echo "  $lyrname pour $layer[title]\n";
@@ -224,16 +252,40 @@ switch ($action) {
     $tableDef = $route500->asArray()['layers'][$lyrname];
     $path = $route500->asArray()['dbpath'].'/'.$tableDef['path'];
     $ogr = new OgrInfo($path, 'ISO-8859-1');
-    echo SqlLoader::create_table($ogr, $tableDef, '', '');
-    die("Fin ligne ".__LINE__."\n");
+    foreach (SqlLoader::create_table($ogr, $tableDef, '', '') as $sql)
+      echo "$sql;\n";
+    die();
   
   case 'insert_into':
     $tableDef = $route500->asArray()['layers'][$lyrname];
     $path = $route500->asArray()['dbpath'].'/'.$tableDef['path'];
     $ogr = new Ogr2Php($path, 'ISO-8859-1');
-    echo SqlLoader::insert_into($ogr, $tableDef, '', '', $route500->asArray()['precision'], 0);
-    die("Fin ligne ".__LINE__."\n");
+    foreach (SqlLoader::insert_into($ogr, $tableDef, '', '', $route500->asArray()['precision'], 0) as $sql)
+      echo "$sql;\n";
+    die();
 
+  case 'load':
+    $mysqlparams = require __DIR__.'/mysqlparams.inc.php';
+    SqlLoader::openMySQL($mysqlparams);
+    echo "Chargement de $lyrname\n";
+    $tableDef = $route500->asArray()['layers'][$lyrname];
+    $path = $route500->asArray()['dbpath'].'/'.$tableDef['path'];
+    $ogrInfo = new OgrInfo($path, 'ISO-8859-1');
+    foreach (SqlLoader::create_table($ogrInfo, $tableDef, '', '') as $sql)
+      SqlLoader::query($sql);
+    $ogr2php = new Ogr2Php($path, 'ISO-8859-1');
+    foreach (SqlLoader::insert_into($ogr2php, $tableDef, '', '', $route500->asArray()['precision'], 0) as $sql)
+      SqlLoader::query($sql);
+    die();
+  
+    case 'loadall':
+      foreach ($route500->asArray()['layers'] as $lyrname => $layer) {
+        if (!isset($layer['path']))
+          continue;
+        echo "php $argv[0] load $lyrname\n";
+      }
+      die();
+      
   default:
     die("commande $action inconnue");
 }

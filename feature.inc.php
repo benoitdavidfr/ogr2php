@@ -23,22 +23,32 @@ class Feature {
   
   /*PhpDoc: methods
   name:  __construct
-  title: function __construct(array $$properties, Geometry $geometry)
+  title: function __construct($param)
+  doc: |
+    $param peut être:
+      - un GeoJSON sous la forme d'un string
+      - un array avec un élément properties et un autre geometry qui doit être un Geometry
   */
-  /*
-  function __construct(array $properties, Geometry $geometry) {
-    $this->properties = $properties;
-    $this->geometry = $geometry;
-  }
-  */
-  function __construct(string $geojson) {
-    $feature = json_decode($geojson, true);
-    if ($feature['type']<>'Feature')
-      throw new Exception("GeoJSON '$geojson' not a feature");
-    //echo "feature = "; print_r($feature);
-    $this->properties = $feature['properties'];
-    $this->geometry = Geometry::fromGeoJSON($feature['geometry']);
-    //echo "this = "; print_r($this);
+  function __construct($param) {
+    if (is_string($param)) {
+      $feature = json_decode($param, true);
+      if ($feature['type']<>'Feature')
+        throw new Exception("GeoJSON '$geojson' not a feature");
+      $this->properties = $feature['properties'];
+      $this->geometry = Geometry::fromGeoJSON($feature['geometry']);
+    }
+    elseif (is_array($param)) {
+      if (!is_array($param['properties']))
+        throw new Exception("dans Feature::__construct(), param[properties] doit être un array");
+      $this->properties = $param['properties'];
+      if (!is_object($param['geometry']) || !is_subclass_of($param['geometry'], 'Geometry')) {
+        //echo "param[geometry]=$param[geometry]<br>\n";
+        //print_r($param['geometry']);
+        throw new Exception(
+          "Erreur dans Feature::__construct(), param[geometry] doit être un objet d'une sous-classe de Geometry");
+      }
+      $this->geometry = $param['geometry'];
+    }
   }
 
   /*PhpDoc: methods
@@ -70,6 +80,18 @@ class Feature {
       'properties'=> $this->properties,
     ];
     return json_encode($feature);
+  }
+  
+  /*PhpDoc: methods
+  name:  geojson
+  title: "function geojson(): array - retourne un tableau Php qui encodé en JSON correspondra à la geometry GeoJSON"
+  */
+  function geojson(): array {
+    return [
+      'type'=> 'Feature',
+      'properties'=> $this->properties,
+      'geometry'=> $this->geometry->geojson(),
+    ];
   }
 };
 
