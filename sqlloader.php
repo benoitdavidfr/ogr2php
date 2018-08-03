@@ -34,6 +34,7 @@ journal: |
   4-6/12/2016
     première version
 */
+require_once __DIR__.'/mysql.inc.php';
 require_once __DIR__.'/ogr2php.inc.php';
 
 /*PhpDoc: classes
@@ -44,7 +45,6 @@ doc: |
 */
 class SqlLoader {
   static $sql_reserved_words = ['add','ignore'];
-  static $mysqli; // handle MySQL
   
   // transformation du type Ogr en type SQL
   static function sqltype(string $fieldtype): string {
@@ -147,29 +147,6 @@ class SqlLoader {
       $sqls[] = "commit";
     return $sqls;
   }
-  
-  // ouvre une connexion avec MySQL, enregistre la variable en variable statique de classe et la renvoie
-  // param sous la forme mysql://{user}:{passwd}@{host}/{database}
-  static function openMySQL(string $param) {
-    if (!preg_match('!^mysql://([^:]+):([^@]+)@([^/]+)/(.*)$!', $param, $matches))
-      throw new Exception("param \"".$param."\" incorrect");
-    //print_r($matches);
-    self::$mysqli = new mysqli($matches[3], $matches[1], $matches[2], $matches[4]);
-    if (mysqli_connect_error())
-  // La ligne ci-dessous ne s'affiche pas correctement si le serveur est arrêté !!!
-  //    throw new Exception("Connexion MySQL impossible pour $server_name : ".mysqli_connect_error());
-      throw new Exception("Connexion MySQL impossible sur $param");
-    if (!self::$mysqli->set_charset ('utf8'))
-      throw new Exception("mysqli->set_charset() impossible : ".self::$mysqli->error);
-    return self::$mysqli;
-  }
-  
-  // exécute une requête MySQL, soulève une exception en cas d'erreur, renvoie le résultat
-  static function query(string $sql) {
-    if (!($result = self::$mysqli->query($sql)))
-      throw new Exception("Req. \"$sql\" invalide: ".self::$mysqli->error);
-    return $result;
-  }
 };
 
 
@@ -263,17 +240,17 @@ switch ($action) {
     die();
 
   case 'load':
-    $mysqlparams = require __DIR__.'/mysqlparams.inc.php';
-    SqlLoader::openMySQL($mysqlparams);
+    require_once __DIR__.'/mysqlparams.inc.php';
+    MySql::open(mysqlParams());
     echo "Chargement de $lyrname\n";
     $tableDef = $route500->asArray()['layers'][$lyrname];
     $path = $route500->asArray()['dbpath'].'/'.$tableDef['path'];
     $ogrInfo = new OgrInfo($path, 'ISO-8859-1');
     foreach (SqlLoader::create_table($ogrInfo, $tableDef, '', '') as $sql)
-      SqlLoader::query($sql);
+      MySql::query($sql);
     $ogr2php = new Ogr2Php($path, 'ISO-8859-1');
     foreach (SqlLoader::insert_into($ogr2php, $tableDef, '', '', $route500->asArray()['precision'], 0) as $sql)
-      SqlLoader::query($sql);
+      MySql::query($sql);
     die();
   
     case 'loadall':
