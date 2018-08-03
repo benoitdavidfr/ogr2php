@@ -34,7 +34,7 @@ journal: |
   4-6/12/2016
     première version
 */
-require_once __DIR__.'/mysql.inc.php';
+require_once __DIR__.'/../phplib/mysql.inc.php';
 require_once __DIR__.'/ogr2php.inc.php';
 
 /*PhpDoc: classes
@@ -158,8 +158,8 @@ if (php_sapi_name()<>'cli') {
 }
 ini_set('memory_limit', '1280M');
 
-require_once '../yamldoc/inc.php';
-
+require_once __DIR__.'/../yamldoc/inc.php';
+   
 Store::setStoreid('docs');
 $route500 = new_doc('geodata/route500');
 
@@ -240,9 +240,8 @@ switch ($action) {
     die();
 
   case 'load':
-    require_once __DIR__.'/mysqlparams.inc.php';
-    MySql::open(mysqlParams());
     echo "Chargement de $lyrname\n";
+    MySql::open(require(__DIR__.'/mysqlparams.inc.php'));
     $tableDef = $route500->asArray()['layers'][$lyrname];
     $path = $route500->asArray()['dbpath'].'/'.$tableDef['path'];
     $ogrInfo = new OgrInfo($path, 'ISO-8859-1');
