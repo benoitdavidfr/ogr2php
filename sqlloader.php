@@ -45,6 +45,17 @@ doc: |
 */
 class SqlLoader {
   static $sql_reserved_words = ['add','ignore'];
+  // les chemins possibles pour le répertoire des données
+  static $dataStorePaths = [
+    '/home/bdavid/www/data',
+    '/var/www/html/data',
+  ];
+  
+  static function dataStorePath() {
+    foreach (self::$dataStorePaths as $dataStorePath)
+      if (is_dir($dataStorePath))
+        return $dataStorePath;
+  }
   
   // transformation du type Ogr en type SQL
   static function sqltype(string $fieldtype): string {
@@ -160,8 +171,8 @@ ini_set('memory_limit', '1280M');
 
 require_once __DIR__.'/../yamldoc/inc.php';
    
-Store::setStoreid('docs');
-$route500 = new_doc('geodata/route500');
+Store::setStoreid('docs'); // le store dans lequel est le doc
+$geodataDoc = new_doc('geodata/route500');
 
 if (php_sapi_name() == 'cli') {
   if ($argc <= 1) {
@@ -180,7 +191,7 @@ if (php_sapi_name() == 'cli') {
   elseif (($argc == 2) && !in_array($argv[1], ['yaml','loadall'])) {
     echo "usage: $argv[0] $argv[1] <layer>\n";
     echo "où <layer> vaut:\n";
-    foreach ($route500->asArray()['layers'] as $lyrname => $layer) {
+    foreach ($geodataDoc->asArray()['layers'] as $lyrname => $layer) {
       if (isset($layer['path']))
         echo "  $lyrname pour $layer[title]\n";
     }
@@ -200,7 +211,7 @@ else { // php_sapi_name() != 'cli'
   }
   elseif (($_GET['action'] <> 'yaml') && !isset($_GET['layer'])) {
     echo "</pre><h3>$_GET[action] sur quelle couche ?</h3>\n";
-    foreach ($route500->asArray()['layers'] as $lyrname => $layer) {
+    foreach ($geodataDoc->asArray()['layers'] as $lyrname => $layer) {
       if (isset($layer['path']))
         echo "<a href='?action=$_GET[action]&amp;layer=$lyrname'>$layer[title]</a><br>\n";
     }
@@ -210,50 +221,47 @@ else { // php_sapi_name() != 'cli'
   $lyrname = isset($_GET['layer']) ? $_GET['layer'] : null;
 }
 
+if ($lyrname) {
+  $tableDef = $geodataDoc->asArray()['layers'][$lyrname];
+  $lyrpath = SqlLoader::dataStorePath().'/'.$geodataDoc->asArray()['dbpath'].'/'.$tableDef['path'];
+  //echo "path=$path\n";
+}
+
 switch ($action) {
   case 'yaml':
-    echo "route500=",$route500->yaml('');
+    echo "doc=",$geodataDoc->yaml('');
     die("Fin ligne ".__LINE__."\n");
     
   case 'ogrinfo':
-    $tableDef = $route500->asArray()['layers'][$lyrname];
-    $path = $route500->asArray()['dbpath'].'/'.$tableDef['path'];
-    //echo "path=$path\n";
-    $ogr = new OgrInfo($path, 'ISO-8859-1');
+    $ogr = new OgrInfo($lyrpath, 'ISO-8859-1');
     echo "ogrinfo="; print_r($ogr->info());
     die("Fin ligne ".__LINE__."\n");
     
   case 'create_table':
-    $tableDef = $route500->asArray()['layers'][$lyrname];
-    $path = $route500->asArray()['dbpath'].'/'.$tableDef['path'];
-    $ogr = new OgrInfo($path, 'ISO-8859-1');
+    $ogr = new OgrInfo($lyrpath, 'ISO-8859-1');
     foreach (SqlLoader::create_table($ogr, $tableDef, '', '') as $sql)
       echo "$sql;\n";
     die();
   
   case 'insert_into':
-    $tableDef = $route500->asArray()['layers'][$lyrname];
-    $path = $route500->asArray()['dbpath'].'/'.$tableDef['path'];
-    $ogr = new Ogr2Php($path, 'ISO-8859-1');
-    foreach (SqlLoader::insert_into($ogr, $tableDef, '', '', $route500->asArray()['precision'], 0) as $sql)
+    $ogr = new Ogr2Php($lyrpath, 'ISO-8859-1');
+    foreach (SqlLoader::insert_into($ogr, $tableDef, '', '', $geodataDoc->asArray()['precision'], 0) as $sql)
       echo "$sql;\n";
     die();
 
   case 'load':
     echo "Chargement de $lyrname\n";
     MySql::open(require(__DIR__.'/mysqlparams.inc.php'));
-    $tableDef = $route500->asArray()['layers'][$lyrname];
-    $path = $route500->asArray()['dbpath'].'/'.$tableDef['path'];
-    $ogrInfo = new OgrInfo($path, 'ISO-8859-1');
+    $ogrInfo = new OgrInfo($lyrpath, 'ISO-8859-1');
     foreach (SqlLoader::create_table($ogrInfo, $tableDef, '', '') as $sql)
       MySql::query($sql);
-    $ogr2php = new Ogr2Php($path, 'ISO-8859-1');
-    foreach (SqlLoader::insert_into($ogr2php, $tableDef, '', '', $route500->asArray()['precision'], 0) as $sql)
+    $ogr2php = new Ogr2Php($lyrpath, 'ISO-8859-1');
+    foreach (SqlLoader::insert_into($ogr2php, $tableDef, '', '', $geodataDoc->asArray()['precision'], 0) as $sql)
       MySql::query($sql);
     die();
   
     case 'loadall':
-      foreach ($route500->asArray()['layers'] as $lyrname => $layer) {
+      foreach ($geodataDoc->asArray()['layers'] as $lyrname => $layer) {
         if (!isset($layer['path']))
           continue;
         echo "php $argv[0] load $lyrname\n";
