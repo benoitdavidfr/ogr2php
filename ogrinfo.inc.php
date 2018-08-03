@@ -61,12 +61,12 @@ doc: |
     $output = implode("\n", $output);
     $pat1 = '[^\[\]]*'; // chaine sans [ ni ]
     $pattern = '!^'
-              .'(Had to open data source read-only.)?\s*'
-              ."INFO: Open of `([^']*)'\s*"
-              ."using driver `([^']*)' successful.\s*"
-              .'Layer name: ([a-zA-Z0-9_]*)\s*'
-              .'Metadata:\s'
-              .'  DBF_DATE_LAST_UPDATE=\d\d\d\d-\d\d-\d\d\s'
+              .'(Had to open data source read-only.\s+)?'
+              ."INFO: Open of `([^']*)'\s+"
+              ."using driver `([^']*)' successful.\s+"
+              .'Layer name: ([a-zA-Z0-9_]*)\s+'
+              .'(Metadata:\s+'
+              .'(  [^=]*=[^\s]*\s)*)?'
               .'Geometry: (Unknown \(any\)|3D Point|Point|Line String|3D Line String|Polygon|3D Polygon)\s*'
               .'Feature Count: (\d+)\s*'
               .'Extent: \((-?\d+\.\d+), (-?\d+\.\d+)\) - \((-?\d+\.\d+), (-?\d+\.\d+)\)\s*'
@@ -89,11 +89,11 @@ doc: |
     $this->filename = $matches[2];
     $this->driver = $matches[3];
     $this->layername = $matches[4];
-    $this->geometry = $matches[5];
-    $this->featureCount = $matches[6];
-    $this->extent = [ 'xmin'=> $matches[7],  'ymin'=> $matches[8],  'xmax'=> $matches[9],  'ymax'=> $matches[10]];
-    $this->projcs = $matches[11];
-    $fields = $matches[17];
+    $this->geometry = $matches[7];
+    $this->featureCount = $matches[8];
+    $this->extent = [ 'xmin'=> $matches[9],  'ymin'=> $matches[10],  'xmax'=> $matches[11],  'ymax'=> $matches[12]];
+    $this->projcs = $matches[13];
+    $fields = $matches[19];
 //    echo "fields=$fields\n";
     $this->fields = [];
     $pattern = '!^([^:]+): (Integer|String|Real|Date) \((\d+)\.(\d+)\)\s*!';
@@ -147,12 +147,18 @@ require_once __DIR__.'/../geometry/coordsys.inc.php';
 echo "<!DOCTYPE HTML><html><head><meta charset='UTF-8'><title>ogr2php</title></head><body><pre>\n";
 
 $paths= [
-  'route500'=> '/var/www/html/data/route500/ROUTE500_2-1__SHP_LAMB93_FXX_2018-04-09/ROUTE500'
+  '/var/www/html/data/route500/ROUTE500_2-1__SHP_LAMB93_FXX_2018-04-09/ROUTE500'
+    .'/1_DONNEES_LIVRAISON_2018-04-00189/R500_2-1_SHP_LAMB93_FXX-ED181/HABILLAGE/TRONCON_HYDROGRAPHIQUE.shp',
+  '/home/bdavid/www/data/route500/ROUTE500_2-1__SHP_LAMB93_FXX_2018-04-09/ROUTE500'
     .'/1_DONNEES_LIVRAISON_2018-04-00189/R500_2-1_SHP_LAMB93_FXX-ED181/HABILLAGE/TRONCON_HYDROGRAPHIQUE.shp',
   //'bdcarthage'=> '/home/bdavid/geodata/BDCARTHAGE/'.'HYDROGRAPHIE_SURFACIQUE.SHP',
 ];
 
 foreach ($paths as $path) {
+    if (!is_file($path)) {
+      echo "not a file $path<br>\n";
+      continue;
+    }
     echo "$path<br>\n";
     $ogr = new OgrInfo($path);
     //echo "<pre>ogrInfo="; print_r($ogr->info()); echo "\n";
