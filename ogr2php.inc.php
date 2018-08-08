@@ -92,6 +92,7 @@ Class Ogr2php implements Iterator {
     $len = strlen($buff);
     if (substr($buff, $len-1, 1)==',')
       $buff = substr($buff, 0, $len-1);
+    //echo "buff=$buff\n";
     $this->cfeature = new Feature($buff);
   }
   

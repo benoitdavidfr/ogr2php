@@ -115,7 +115,13 @@ class SqlLoader {
     return $sqls;
   }
   
-  static function insert_into(Ogr2Php $ogr, array $table, string $suffix, string $mysql_database, int $precision, int $nbrmax=20): array {
+  static function insert_into(
+      Ogr2Php $ogr,
+      array $table,
+      string $suffix,
+      string $mysql_database,
+      int $precision,
+      int $nbrmax=20): array {
     $transaction = true; // utilisation des transactions
     //$transaction = false; // utilisation des transactions
     $info = $ogr->info();
@@ -150,10 +156,20 @@ class SqlLoader {
       $values = [];
       foreach ($fields as $propname => $field)
         $values[] = '"'.str_replace('"','""',$feature->property($propname)).'"';
+      if (!$feature->geometry()) {
+        echo "geomtrie vide pour :",implode(',',$values),"\n";
+        continue;
+      }
       $sql .= "(".implode(',',$values);
-      $geom = $feature->geometry()->proj2D()->filter($precision);
-      if (!$geom->isValid())
-        throw new Exception("geometry invalide ligne ".__LINE__);
+      $geom0 = $feature->geometry()->proj2D();
+      $geom = $geom0->filter($precision);
+      if (!$geom->isValid()) {
+        //echo "geometry non filtré=$geom0\n";
+        echo "geometry=",$geom->wkt(),"\n";
+        //throw new Exception("geometry invalide ligne ".__LINE__);
+        echo "geometry invalide pour :",implode(',',$values),"\n";
+        continue;
+      }
       $wkt = $geom->wkt();
       $sql .= ",ST_GeomFromText('$wkt'))";
       if ($geom->isValid())
@@ -180,7 +196,9 @@ require_once __DIR__.'/../yamldoc/inc.php';
    
 Store::setStoreid('docs'); // le store dans lequel est le doc
 //$geodataDoc = new_doc('geodata/route500');
-$geodataDoc = new_doc('geodata/ne_110m_physical');
+//$geodataDoc = new_doc('geodata/ne_110m_physical');
+//$geodataDoc = new_doc('geodata/ne_110m_cultural');
+$geodataDoc = new_doc('geodata/ne_10m_physical');
 
 if (php_sapi_name() == 'cli') {
   if ($argc <= 1) {

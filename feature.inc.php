@@ -6,6 +6,8 @@ classes:
 doc: |
   Gestion d'un objet géographique composé d'une liste de champs et d'une géométrie
 journal: |
+  8/8/2018:
+  - un feature peut avoir une géometry null car cela se rencontre
   1/8/2018:
   - première version
 */
@@ -19,7 +21,7 @@ doc: |
 */
 class Feature {
   public $properties; // dictionnaire des champs
-  public $geometry; // objet Geometry
+  public $geometry; // objet Geometry ou null
   
   /*PhpDoc: methods
   name:  __construct
@@ -32,10 +34,15 @@ class Feature {
   function __construct($param) {
     if (is_string($param)) {
       $feature = json_decode($param, true);
-      if ($feature['type']<>'Feature')
-        throw new Exception("GeoJSON '$geojson' not a feature");
+      if ($feature['type']<>'Feature') {
+        print_r($feature);
+        throw new Exception("GeoJSON '$feature' not a feature");
+      }
       $this->properties = $feature['properties'];
-      $this->geometry = Geometry::fromGeoJSON($feature['geometry']);
+      if (!$feature['geometry'])
+        $this->geometry = null;
+      else
+        $this->geometry = Geometry::fromGeoJSON($feature['geometry']);
     }
     elseif (is_array($param)) {
       if (!is_array($param['properties']))
