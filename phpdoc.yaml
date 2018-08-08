@@ -1,15 +1,12 @@
-title: ogr2php - Interface OGR en Php
+title: ogr2php - Interface OGR en Php et chargement de données géo dans MySql
 path: /ogr2php
 doc: |
-  Cette interface est composée de 3 parties:
-  1) les classes Ogr2Php, OgrIter et Feature qui permettent de lire les objets géographiques d'une couche Ogr,
-    chaque objet est défini par une liste de champs et un WKT
-  2) les classe CoordSys, Lambert93, WebMercator et UTM qui permettent d'effectuer un changement de système de
-    coordonnées uniquement sur l'ellipsoide IAG_GRS_1980
-  3) un chargeur générique de couche Ogr dans MySQL qui utilise les 2 premières parties qui sont idépendantes
-    les unes des autres mais conçues pour fonctionner ensemble.
-  L'interface repose sur:
-    - geometry qui gère la géométrie WKT/GeoJSON
+  Ce module est composée de 2 parties:
+    1) les classes OgrInfo, Ogr2Php et Feature qui proposent de lire les objets géographiques d'une couche Ogr,
+      chaque Feature est défini par un dictionnaire de champs et une géométrie
+    2) un chargeur générique de couche Ogr dans MySQL qui utilise la première partie.
+  Le module repose sur geometry qui gère la géométrie WKT/GeoJSON
+  Il utilise yamldoc pour stocker les définitions de bases de données géographiques.
 journal: |
   30/7/2018
     - reprise du code, création d'un git
@@ -26,8 +23,8 @@ journal: |
   - première version
 htmlFiles:
 phpScripts:
+  - /ogr2php/sqlloader.php
 phpIncludes:
+  - /ogr2php/ogrinfo.inc.php
   - /ogr2php/ogr2php.inc.php
-  - /ogr2php/ogriter.inc.php
   - /ogr2php/feature.inc.php
-  - /ogr2php/sqlloader.inc.php

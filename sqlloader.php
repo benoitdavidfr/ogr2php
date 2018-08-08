@@ -1,7 +1,7 @@
 <?php
 /*PhpDoc:
-name: sqlloader.inc.php
-title: sqlloader.inc.php - module V2 générique de chargement d'un produit dans une base MySQL
+name: sqlloader.php
+title: sqlloader.php - module V2 générique de chargement d'un produit dans une base MySQL
 includes: [ ogr2php.inc.php ]
 classes:
 doc: |
@@ -9,6 +9,9 @@ doc: |
   Utilisation systématique du type Geometry
   
 journal: |
+  8/8/2018
+    ajout de la base dans create_table et insert_into
+    ajout du test de validité d'une géométrie dans insert_into
   31/7-2/8/2018
     passage en V2
   24/12/2016
@@ -61,6 +64,8 @@ class SqlLoader {
   static function sqltype(string $fieldtype): string {
     if ($fieldtype=='Integer')
       return 'integer';
+    if ($fieldtype=='Integer64')
+      return 'bigint';
     if (preg_match('!^String\((\d+)\)$!', $fieldtype, $matches))
       return "varchar($matches[1])";
     if (preg_match('!^Real\((\d+)\.(\d+)\)$!', $fieldtype, $matches))
@@ -70,7 +75,7 @@ class SqlLoader {
   
   /*PhpDoc: methods
   name: create_table
-  title: static function create_table($info, $tableDef, $suffix, $mysql_database) - instruction SQL create table
+  title: static function create_table($info, $tableDef, $suffix, $mysql_database) - instructions SQL create table
   doc: |
     $info correspond à $ogr->info()
     $tableDef correspond à la définition des paramètres pour une table
@@ -147,6 +152,8 @@ class SqlLoader {
         $values[] = '"'.str_replace('"','""',$feature->property($propname)).'"';
       $sql .= "(".implode(',',$values);
       $geom = $feature->geometry()->proj2D()->filter($precision);
+      if (!$geom->isValid())
+        throw new Exception("geometry invalide ligne ".__LINE__);
       $wkt = $geom->wkt();
       $sql .= ",ST_GeomFromText('$wkt'))";
       if ($geom->isValid())
@@ -172,7 +179,8 @@ ini_set('memory_limit', '1280M');
 require_once __DIR__.'/../yamldoc/inc.php';
    
 Store::setStoreid('docs'); // le store dans lequel est le doc
-$geodataDoc = new_doc('geodata/route500');
+//$geodataDoc = new_doc('geodata/route500');
+$geodataDoc = new_doc('geodata/ne_110m_physical');
 
 if (php_sapi_name() == 'cli') {
   if ($argc <= 1) {
@@ -239,13 +247,14 @@ switch ($action) {
     
   case 'create_table':
     $ogr = new OgrInfo($lyrpath, 'ISO-8859-1');
-    foreach (SqlLoader::create_table($ogr, $tableDef, '', '') as $sql)
+    foreach (SqlLoader::create_table($ogr, $tableDef, '', $geodataDoc->dbname()) as $sql)
       echo "$sql;\n";
     die();
   
   case 'insert_into':
+    echo "dbname=",$geodataDoc->dbname(),"\n"; die();
     $ogr = new Ogr2Php($lyrpath, 'ISO-8859-1');
-    foreach (SqlLoader::insert_into($ogr, $tableDef, '', '', $geodataDoc->asArray()['precision'], 0) as $sql)
+    foreach (SqlLoader::insert_into($ogr, $tableDef, '', $geodataDoc->dbname(), $geodataDoc->asArray()['precision'], 0) as $sql)
       echo "$sql;\n";
     die();
 
@@ -253,10 +262,10 @@ switch ($action) {
     echo "Chargement de $lyrname\n";
     MySql::open(require(__DIR__.'/mysqlparams.inc.php'));
     $ogrInfo = new OgrInfo($lyrpath, 'ISO-8859-1');
-    foreach (SqlLoader::create_table($ogrInfo, $tableDef, '', '') as $sql)
+    foreach (SqlLoader::create_table($ogrInfo, $tableDef, '', $geodataDoc->dbname()) as $sql)
       MySql::query($sql);
     $ogr2php = new Ogr2Php($lyrpath, 'ISO-8859-1');
-    foreach (SqlLoader::insert_into($ogr2php, $tableDef, '', '', $geodataDoc->asArray()['precision'], 0) as $sql)
+    foreach (SqlLoader::insert_into($ogr2php, $tableDef, '', $geodataDoc->dbname(), $geodataDoc->asArray()['precision'], 0) as $sql)
       MySql::query($sql);
     die();
   

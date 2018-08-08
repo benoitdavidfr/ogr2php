@@ -6,9 +6,11 @@ classes:
 doc: |
   La classe OgrInfopermet d'obtenir diverses informations sur une couche OGR (projection, nbre d'objets, champs, ...)
 journal: |
+  8/8/2018:
+    - amélioration pour lire Natural Earth
   31/7/2018:
-    - nouvelle version
-    - cahgt de nom en ogrinfo
+    - nouvelle version pour Route500
+    - chgt de nom en ogrinfo
   18/12/2016:
     - amélioration pour lire Natural Earth
   17/7/2016:
@@ -72,9 +74,9 @@ doc: |
               .'Extent: \((-?\d+\.\d+), (-?\d+\.\d+)\) - \((-?\d+\.\d+), (-?\d+\.\d+)\)\s*'
               .'Layer SRS WKT:\s*'
               ."((PROJCS|GEOGCS)\[$pat1(\[$pat1(\[$pat1(\[$pat1(\[$pat1\]$pat1)*\]$pat1)*\]$pat1)*\]$pat1)*\]\s*)"
-              .'(([^:]+: (Integer|String|Real|Date) \(\d+\.\d+\)\s*)*)'
+              .'(([^:]+: (Integer|Integer64|String|Real|Date) \(\d+\.\d+\)\s*)*)'
               .'$!';
-    /*
+/*
 */
 //              .'!';
     if (!preg_match($pattern, $output, $matches)) {
@@ -96,11 +98,12 @@ doc: |
     $fields = $matches[19];
 //    echo "fields=$fields\n";
     $this->fields = [];
-    $pattern = '!^([^:]+): (Integer|String|Real|Date) \((\d+)\.(\d+)\)\s*!';
+    $pattern = '!^([^:]+): (Integer|Integer64|String|Real|Date) \((\d+)\.(\d+)\)\s*!';
     while (preg_match($pattern, $fields, $matches)) {
 //      echo "<pre>matches="; print_r($matches); echo "</pre>";
       switch($matches[2]) {
         case 'Integer' :
+        case 'Integer64' :
         case 'Date' :
           $type = $matches[2]; break;
         case 'String' :
