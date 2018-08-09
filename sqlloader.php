@@ -9,6 +9,8 @@ doc: |
   Utilisation systématique du type Geometry
   
 journal: |
+  9/8/2018
+    chgt du nom de table qui est le lyrname
   8/8/2018
     ajout de la base dans create_table et insert_into
     ajout du test de validité d'une géométrie dans insert_into
@@ -75,17 +77,17 @@ class SqlLoader {
   
   /*PhpDoc: methods
   name: create_table
-  title: static function create_table($info, $tableDef, $suffix, $mysql_database) - instructions SQL create table
+  title: "static function OgrInfo $ogr, array $tableDef, string $mysql_database): array - instructions SQL create table"
   doc: |
     $info correspond à $ogr->info()
     $tableDef correspond à la définition des paramètres pour une table
   */
-  static function create_table(OgrInfo $ogr, array $tableDef, string $suffix, string $mysql_database): array {
+  static function create_table(OgrInfo $ogr, array $tableDef, string $mysql_database): array {
     $info = $ogr->info();
     if (!isset($info['layername']))
       throw new Exception("ogrinfo incorrect");
     $mysql_database = ($mysql_database ? $mysql_database.'.' : '');
-    $table_name = strtolower($info['layername']).$suffix;
+    $table_name = $tableDef['_id'];
     $sqls[0] = "drop table if exists $mysql_database$table_name";
     $sql = "create table $mysql_database$table_name (\n";
     $sqlfields = [];
@@ -117,8 +119,7 @@ class SqlLoader {
   
   static function insert_into(
       Ogr2Php $ogr,
-      array $table,
-      string $suffix,
+      array $tableDef,
       string $mysql_database,
       int $precision,
       int $nbrmax=20): array {
@@ -128,7 +129,7 @@ class SqlLoader {
     if (!isset($info['layername']))
       throw new Exception("ogrinfo incorrect");
     $mysql_database = ($mysql_database ? $mysql_database.'.' : '');
-    $table_name = strtolower($info['layername']).$suffix;
+    $table_name = $tableDef['_id'];
     $fields = [];
     foreach ($info['fields'] as $field) {
       $name = strtolower($field['name']);
@@ -157,7 +158,7 @@ class SqlLoader {
       foreach ($fields as $propname => $field)
         $values[] = '"'.str_replace('"','""',$feature->property($propname)).'"';
       if (!$feature->geometry()) {
-        echo "geomtrie vide pour :",implode(',',$values),"\n";
+        echo "geométrie vide pour :",implode(',',$values),"\n";
         continue;
       }
       $sql .= "(".implode(',',$values);
@@ -195,10 +196,12 @@ ini_set('memory_limit', '1280M');
 require_once __DIR__.'/../yamldoc/inc.php';
    
 Store::setStoreid('docs'); // le store dans lequel est le doc
-//$geodataDoc = new_doc('geodata/route500');
-//$geodataDoc = new_doc('geodata/ne_110m_physical');
-//$geodataDoc = new_doc('geodata/ne_110m_cultural');
-$geodataDoc = new_doc('geodata/ne_10m_physical');
+//$docid = 'geodata/route500';
+$docid = 'geodata/ne_110m_physical';
+//$docid = 'geodata/ne_110m_cultural';
+//$docid = 'geodata/ne_10m_physical';
+
+$geodataDoc = new_doc($docid);
 
 if (php_sapi_name() == 'cli') {
   if ($argc <= 1) {
@@ -212,7 +215,7 @@ if (php_sapi_name() == 'cli') {
     echo "  insert_into\n";
     echo "  load\n";
     echo "  loadall\n";
-    die();
+    die("le doc est $docid\n");
   }
   elseif (($argc == 2) && !in_array($argv[1], ['yaml','loadall'])) {
     echo "usage: $argv[0] $argv[1] <layer>\n";
@@ -248,7 +251,10 @@ else { // php_sapi_name() != 'cli'
 }
 
 if ($lyrname) {
+  if (!isset($geodataDoc->asArray()['layers'][$lyrname]))
+    die("Erreur: layer $lyrname inconnue\n");
   $tableDef = $geodataDoc->asArray()['layers'][$lyrname];
+  $tableDef['_id'] = $lyrname;
   $lyrpath = SqlLoader::dataStorePath().'/'.$geodataDoc->asArray()['dbpath'].'/'.$tableDef['path'];
   //echo "path=$path\n";
 }
@@ -265,14 +271,14 @@ switch ($action) {
     
   case 'create_table':
     $ogr = new OgrInfo($lyrpath, 'ISO-8859-1');
-    foreach (SqlLoader::create_table($ogr, $tableDef, '', $geodataDoc->dbname()) as $sql)
+    foreach (SqlLoader::create_table($ogr, $tableDef, $geodataDoc->dbname()) as $sql)
       echo "$sql;\n";
     die();
   
   case 'insert_into':
     echo "dbname=",$geodataDoc->dbname(),"\n"; die();
     $ogr = new Ogr2Php($lyrpath, 'ISO-8859-1');
-    foreach (SqlLoader::insert_into($ogr, $tableDef, '', $geodataDoc->dbname(), $geodataDoc->asArray()['precision'], 0) as $sql)
+    foreach (SqlLoader::insert_into($ogr, $tableDef, $geodataDoc->dbname(), $geodataDoc->asArray()['precision'], 0) as $sql)
       echo "$sql;\n";
     die();
 
@@ -280,10 +286,10 @@ switch ($action) {
     echo "Chargement de $lyrname\n";
     MySql::open(require(__DIR__.'/mysqlparams.inc.php'));
     $ogrInfo = new OgrInfo($lyrpath, 'ISO-8859-1');
-    foreach (SqlLoader::create_table($ogrInfo, $tableDef, '', $geodataDoc->dbname()) as $sql)
+    foreach (SqlLoader::create_table($ogrInfo, $tableDef, $geodataDoc->dbname()) as $sql)
       MySql::query($sql);
     $ogr2php = new Ogr2Php($lyrpath, 'ISO-8859-1');
-    foreach (SqlLoader::insert_into($ogr2php, $tableDef, '', $geodataDoc->dbname(), $geodataDoc->asArray()['precision'], 0) as $sql)
+    foreach (SqlLoader::insert_into($ogr2php, $tableDef, $geodataDoc->dbname(), $geodataDoc->asArray()['precision'], 0) as $sql)
       MySql::query($sql);
     die();
   
