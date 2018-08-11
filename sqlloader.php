@@ -276,7 +276,7 @@ switch ($action) {
     die();
   
   case 'insert_into':
-    echo "dbname=",$geodataDoc->dbname(),"\n"; die();
+    //echo "dbname=",$geodataDoc->dbname(),"\n"; die();
     $ogr = new Ogr2Php($lyrpath, 'ISO-8859-1');
     foreach (SqlLoader::insert_into($ogr, $tableDef, $geodataDoc->dbname(), $geodataDoc->asArray()['precision'], 0) as $sql)
       echo "$sql;\n";
@@ -284,6 +284,10 @@ switch ($action) {
 
   case 'load':
     echo "Chargement de $lyrname\n";
+    if (!file_exists(__DIR__.'/mysqlparams.inc.php')) {
+      die("Cette commande n'est pas disponible car l'utilisation de MySQL n'a pas été paramétrée.<br>\n"
+        ."Pour la paramétrer voir le fichier <b>mysqlparams.inc.php.model</b><br>\n");
+    }
     MySql::open(require(__DIR__.'/mysqlparams.inc.php'));
     $ogrInfo = new OgrInfo($lyrpath, 'ISO-8859-1');
     foreach (SqlLoader::create_table($ogrInfo, $tableDef, $geodataDoc->dbname()) as $sql)
