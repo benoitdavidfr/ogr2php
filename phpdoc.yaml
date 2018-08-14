@@ -8,19 +8,19 @@ doc: |
   Le module repose sur geometry qui gère la géométrie WKT/GeoJSON
   Il utilise yamldoc pour stocker les définitions de bases de données géographiques.
 journal: |
-  30/7/2018
+  30/7-14/8/2018
     - reprise du code, création d'un git
     - remplacement de featurewkt.inc.php par feature.inc.php
   15/12/2016
-    Ajout de la projection UTM dans les systèmes de coordonnées
-    Passage de coordsys.inc.php en V2
+    - Ajout de la projection UTM dans les systèmes de coordonnées
+    - Passage de coordsys.inc.php en V2
   6/12/2016
-    Evolution du chargeur pour traiter les produits multi-séries comme la BDTopo
+    - Evolution du chargeur pour traiter les produits multi-séries comme la BDTopo
   3-5/12/2016
-    structuration sous la forme d'un module
-    fusion de la version provenant de geofla avec celle provenant de geoapi.fr/ppr
+    - structuration sous la forme d'un module
+    - fusion de la version provenant de geofla avec celle provenant de geoapi.fr/ppr
   29/5/2016
-  - première version
+    - première version
 htmlFiles:
 phpScripts:
   - /ogr2php/sqlloader.php

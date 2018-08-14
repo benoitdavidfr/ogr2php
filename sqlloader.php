@@ -10,8 +10,12 @@ doc: |
   L'exécution du script effectue le chargement de qqs produits définis dans YamlDoc
   
 journal: |
+  14/8/2018:
+    - ajout possibilité de forcer le type SQL d'un champ pour corriger des erreurs
+    - ajout possibilité d'exclure certains champs du chargement
+    - ajout commande drop_table
   13/8/2018
-    - intégration du nom de la base comme paramètre
+    - intégration du nom de la base comme paramètre d'appel de sqlloader
     - ajout possibilité de charger plusieurs couches SHP dans une seule table
   9/8/2018
     chgt du nom de table qui est le lyrname
@@ -47,8 +51,8 @@ require_once __DIR__.'/../phplib/mysql.inc.php';
 require_once __DIR__.'/ogr2php.inc.php';
 
 /*PhpDoc: classes
-name:  Feature
-title: class Feature - Définition d'un objet géographique composé d'une liste de champs et d'une géométrie
+name:  SqlLoader
+title: class SqlLoader - Classe statique regroupant les fonctions utiles au chargement
 methods:
 doc: |
 */
@@ -112,12 +116,15 @@ class SqlLoader {
       foreach ($info['fields'] as $field) {
         if (isset($tableDef['excludedFields']) && in_array($field['name'], $tableDef['excludedFields']))
           continue;
+        $sqltype = (isset($tableDef['fieldtypes'][$field['name']])) ?
+            $tableDef['fieldtypes'][$field['name']]
+              : self::sqltype($field['type']);
   //    print_r($field);
         $name = strtolower($field['name']);
   // cas d'utilisation d'un mot-clé SQL comme nom de champ
         if (in_array($name, self::$sql_reserved_words))
           $name = "col_$name";
-        $sqlfields[] = "  $name ".self::sqltype($field['type']).' not null';
+        $sqlfields[] = "  $name $sqltype not null";
       }
     $sql .= implode(",\n",$sqlfields).",\n";
     $sql .= "  geom Geometry not null\n";
@@ -190,14 +197,22 @@ class SqlLoader {
       }
       $wkt = $geom->wkt();
       $sql .= ",ST_GeomFromText('$wkt'))";
-      if ($geom->isValid())
-        $sqls[] = $sql;
-      else
-        echo "-- invalid $sql\n";
+      $sqls[] = $sql;
     }
     if ($transaction)
       $sqls[] = "commit";
     return $sqls;
+  }
+  
+  /*PhpDoc: methods
+  name: drop_table
+  title: "static function drop_table(OgrInfo $ogr, array $tableDef, string $mysql_database): string - instruction SQL drop table"
+  */
+  static function drop_table(array $tableDef, string $mysql_database): string {
+    $mysql_database = ($mysql_database ? $mysql_database.'.' : '');
+    $table_name = $tableDef['_id'];
+    $sql = "drop table if exists $mysql_database$table_name";
+    return $sql;
   }
 };
 
@@ -235,9 +250,11 @@ if (php_sapi_name() == 'cli') {
     echo "  shp - affiche la liste des fichiers SHP\n";
     echo "  missing - affiche la liste des fichiers SHP absent du document\n";
     echo "  ogrinfo <layer> - effectue un ogrinfo sur la couche\n";
+    echo "  fields <layer> - liste les champs de la couche\n";
     echo "  create_table <layer> - génère les ordres SQL pour créer la table correspondant à la couche\n";
     echo "  insert_into <layer> - génère les orders SQL pour peupler la table correspondant à la couche\n";
     echo "  load <layer> - crée la table pour la couche et la peuple\n";
+    echo "  drop_table <layer> - supprime la table de la couche\n";
     echo "  loadall - génère les ordres sh pour créer ttes les tables et les peupler\n";
     echo "où <layer> vaut:\n";
     foreach ($geodataDoc->asArray()['layers'] as $lyrname => $layer) {
@@ -361,9 +378,19 @@ switch ($action) {
       MySql::query($sql);
     foreach ($lyrpaths as $lyrpath) {
       $ogr2php = new Ogr2Php($lyrpath);
-      foreach (SqlLoader::insert_into($ogr2php, $tableDef, $geodataDoc->dbname(), $geodataDoc->asArray()['precision'], 0) as $sql)
-        MySql::query($sql);
+      foreach (SqlLoader::insert_into($ogr2php, $tableDef, $geodataDoc->dbname(), $geodataDoc->asArray()['precision'], 0) as $sql) {
+        try {
+          MySql::query($sql);
+        } catch(Exception $e) {
+          echo "Erreur SQL: ",$e->getMessage(),"\n";
+        }
+      }
     }
+    die();
+    
+  case 'drop_table':
+    $sql = SqlLoader::drop_table($tableDef, $geodataDoc->dbname());
+    MySql::query($sql);
     die();
   
   case 'loadall':
