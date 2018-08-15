@@ -10,6 +10,8 @@ doc: |
   L'exécution du script effectue le chargement de qqs produits définis dans YamlDoc
   
 journal: |
+  15/8/2018:
+    - adaptation à la structure des documents VecatorDataset, chgt du champ path en ogrPath
   14/8/2018:
     - ajout possibilité de forcer le type SQL d'un champ pour corriger des erreurs
     - ajout possibilité d'exclure certains champs du chargement
@@ -258,7 +260,7 @@ if (php_sapi_name() == 'cli') {
     echo "  loadall - génère les ordres sh pour créer ttes les tables et les peupler\n";
     echo "où <layer> vaut:\n";
     foreach ($geodataDoc->asArray()['layers'] as $lyrname => $layer) {
-      if (isset($layer['path']))
+      if (isset($layer['ogrPath']))
         echo "  $lyrname pour $layer[title]\n";
     }
     die();
@@ -270,7 +272,7 @@ if (php_sapi_name() == 'cli') {
     echo "usage: $argv[0] $argv[1] $argv[2] <layer>\n";
     echo "où <layer> vaut:\n";
     foreach ($geodataDoc->asArray()['layers'] as $lyrname => $layer) {
-      if (isset($layer['path']))
+      if (isset($layer['ogrPath']))
         echo "  $lyrname pour $layer[title]\n";
     }
     die();
@@ -307,11 +309,11 @@ if ($lyrname) {
     die("Erreur: layer $lyrname inconnue\n");
   $tableDef = $geodataDoc->asArray()['layers'][$lyrname];
   $tableDef['_id'] = $lyrname;
-  if (is_string($tableDef['path']))
-    $lyrpaths = [ SqlLoader::dataStorePath().'/'.$geodataDoc->asArray()['dbpath'].'/'.$tableDef['path'] ];
+  if (is_string($tableDef['ogrPath']))
+    $lyrpaths = [ SqlLoader::dataStorePath().'/'.$geodataDoc->asArray()['dbpath'].'/'.$tableDef['ogrPath'] ];
   else {
     $lyrpaths = [];
-    foreach ($tableDef['path'] as $path)
+    foreach ($tableDef['ogrPath'] as $path)
       $lyrpaths[] = SqlLoader::dataStorePath().'/'.$geodataDoc->asArray()['dbpath'].'/'.$path;
   }
 }
@@ -378,7 +380,8 @@ switch ($action) {
       MySql::query($sql);
     foreach ($lyrpaths as $lyrpath) {
       $ogr2php = new Ogr2Php($lyrpath);
-      foreach (SqlLoader::insert_into($ogr2php, $tableDef, $geodataDoc->dbname(), $geodataDoc->asArray()['precision'], 0) as $sql) {
+      $precision = $geodataDoc->asArray()['precision'];
+      foreach (SqlLoader::insert_into($ogr2php, $tableDef, $geodataDoc->dbname(), $precision, 0) as $sql) {
         try {
           MySql::query($sql);
         } catch(Exception $e) {
@@ -395,7 +398,7 @@ switch ($action) {
   
   case 'loadall':
     foreach ($geodataDoc->asArray()['layers'] as $lyrname => $layer) {
-      if (!isset($layer['path']))
+      if (!isset($layer['ogrPath']))
         continue;
       echo "php $argv[0] $argv[1] load $lyrname\n";
     }
