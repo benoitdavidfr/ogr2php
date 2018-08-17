@@ -74,20 +74,7 @@ class Feature {
   name:  wkt
   title: function geometry() - recherche la géométrie
   */
-  function geometry() { return $this->geometry; }
-  
-  /*PhpDoc: methods
-  name:  __toString
-  title: function __toString() - représentation GeoJSON
-  */
-  function __toString() {
-    $feature = [
-      'type'=> 'Feature',
-      'geometry'=> $this->geometry->geojson(),
-      'properties'=> $this->properties,
-    ];
-    return json_encode($feature);
-  }
+  function geometry(): ?Geometry { return $this->geometry; }
   
   /*PhpDoc: methods
   name:  geojson
@@ -100,6 +87,12 @@ class Feature {
       'geometry'=> $this->geometry->geojson(),
     ];
   }
+  
+  /*PhpDoc: methods
+  name:  __toString
+  title: function __toString() - représentation GeoJSON
+  */
+  function __toString(): string { return json_encode($this->geojson()); }
 };
 
 

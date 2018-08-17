@@ -10,8 +10,10 @@ doc: |
   L'exécution du script effectue le chargement de qqs produits définis dans YamlDoc
   
 journal: |
+  17/8/2018:
+    - réparation a minima de la version non CLI
   15/8/2018:
-    - adaptation à la structure des documents VecatorDataset, chgt du champ path en ogrPath
+    - adaptation à la structure des documents VectorDataset, chgt du champ path en ogrPath
   14/8/2018:
     - ajout possibilité de forcer le type SQL d'un champ pour corriger des erreurs
     - ajout possibilité d'exclure certains champs du chargement
@@ -229,15 +231,21 @@ ini_set('memory_limit', '1280M');
 
 require_once __DIR__.'/../yamldoc/inc.php';
 
+// les différents documents décrivant des SD
+$docs = [
+  'route500'=> "Route500",
+  'ne_110m'=> "Natural Earth 110m",
+  'ne_10m'=> "Natural Earth 10m",
+];
+
 if (php_sapi_name() == 'cli') {
   if ($argc <= 1) {
     //echo "argc=$argc\n";
     //print_r($argv);
     echo "usage: $argv[0] <doc> [<cmde> [<layer>]]\n";
     echo "où <doc> vaut:\n";
-    echo "  route500 - pour Route500\n";
-    echo "  ne_110m - pour Natural Earth 110m\n";
-    echo "  ne_10m - pour Natural Earth 110m\n";
+    foreach ($docs as $id => $title)
+      echo "$id - pour $title\n";
     die();
   }
   elseif ($argc == 2) {
@@ -286,22 +294,34 @@ if (php_sapi_name() == 'cli') {
   }
 }
 else { // php_sapi_name() != 'cli'
-  if (!isset($_GET['action'])) {
+  if (!isset($_GET['doc'])) {
+    echo "</pre><h3>Documents possibles:</h3>\n";
+    foreach($docs as $id => $title)
+      echo "<a href='?doc=$id'>$title<br>";
+    die();
+  }
+  elseif (!isset($_GET['action'])) {
     echo "</pre><h3>Actions possibles:</h3>\n";
     foreach(['yaml','ogrinfo','create_table','insert_into'] as $action)
-      echo "<a href='?action=$action'>$action<br>";
+      echo "<a href='?doc=$_GET[doc]&amp;action=$action'>$action<br>";
     die();
   }
   elseif (($_GET['action'] <> 'yaml') && !isset($_GET['layer'])) {
+    Store::setStoreid('pub'); // le store dans lequel est le doc
+    if (!($geodataDoc = new_doc("geodata/$_GET[doc]")))
+      die("geodata/$_GET[doc] inexistant dans le store\n");
     echo "</pre><h3>$_GET[action] sur quelle couche ?</h3>\n";
     foreach ($geodataDoc->asArray()['layers'] as $lyrname => $layer) {
-      if (isset($layer['path']))
-        echo "<a href='?action=$_GET[action]&amp;layer=$lyrname'>$layer[title]</a><br>\n";
+      if (isset($layer['ogrPath']))
+        echo "<a href='?doc=$_GET[doc]&amp;action=$_GET[action]&amp;layer=$lyrname'>$layer[title]</a><br>\n";
     }
     die();
   }
   $action = $_GET['action'];
   $lyrname = isset($_GET['layer']) ? $_GET['layer'] : null;
+  Store::setStoreid('pub'); // le store dans lequel est le doc
+  if (!($geodataDoc = new_doc("geodata/$_GET[doc]")))
+    die("geodata/$_GET[doc] inexistant dans le store\n");
 }
 
 if ($lyrname) {

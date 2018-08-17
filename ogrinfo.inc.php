@@ -34,21 +34,15 @@ Class OgrInfo {
   private $featureCount;
   private $extent;
   private $projcs;
-  private $encoding='';
   private $fields;
   
 /*PhpDoc: methods
 name:  __construct
-title: function __construct($path, string $encoding='') - création d'un objet Ogr2Php représentant une couche
+title: function __construct(string $path) - création d'un objet Ogr2Php représentant une couche
 doc: |
-  Prend en paramètre le chemin du fichier SHP ou TAB
-  ainsi que l'encodage des champs des objets ('UTF-8' ou 'ISO-8859-1').
-   En cas d'erreur, l'objet Ogr2Php est créé avec le message d'erreur.
-  En cas de code à améliorer, une exception est générée.
+  Prend en paramètre le chemin du fichier SHP ou TAB.
 */
-  function __construct(string $path, string $encoding='') {
-    if ($encoding)
-      $this->encoding = $encoding;
+  function __construct(string $path) {
     $basename = basename($path);
     if (($pos=strrpos($basename, '.')) == FALSE) {
       throw new Exception ("BAD BASENAME - impossible de distinguer le nom de base de l'extension");
@@ -59,7 +53,6 @@ doc: |
     if ($return) {
       throw new Exception ("BAD OGRINFO - Execution de ogrinfo incorrecte, code retour = $return");
     }
-    $this->error = null;
     $output = implode("\n", $output);
     $pat1 = '[^\[\]]*'; // chaine sans [ ni ]
     $pattern = '!^'
@@ -81,11 +74,11 @@ doc: |
 //              .'!';
     if (!preg_match($pattern, $output, $matches)) {
       echo "no match sur:\n<pre>$output</pre>\n";
-      throw new Exception("don't match ligne ".__LINE__);
+      throw new Exception("In OgrInfo::__construct: don't match ligne ".__LINE__);
     }
     if ($output = preg_replace($pattern, '', $output)) {
       echo "Reste:\n<pre>$output</pre>\n";
-      throw new Exception("Erreur ligne ".__LINE__);
+      throw new Exception("In OgrInfo::__construct: Erreur ligne ".__LINE__);
     }
 //    echo "<pre>matches="; print_r($matches); echo "</pre>\n";
     $this->filename = $matches[2];
@@ -118,16 +111,16 @@ doc: |
     }
     if ($fields)
 //      die("fields=\"$fields\" ligne ".__LINE__."\n");
-      throw new Exception("fields=\"$fields\" ligne ".__LINE__."\n");
+      throw new Exception("In OgrInfo::__construct: fields=\"$fields\" ligne ".__LINE__."\n");
   }
   
   function __get(string $name) { return $this->$name; }
     
 /*PhpDoc: methods
 name:  info
-title: function info($name=null) - retourne les infos sur la couche ou un champ particulier
+title: function info($name=null) - retourne les infos sur la couche
 */
-  function info() {
+  function info(): array {
     return [
       'filename' => $this->filename,
       'driver' => $this->driver,
@@ -136,7 +129,6 @@ title: function info($name=null) - retourne les infos sur la couche ou un champ 
       'featureCount' => $this->featureCount,
       'extent' => $this->extent,
       'projcs' => $this->projcs,
-      'encoding' => $this->encoding,
       'fields' => $this->fields,
     ];
   }
@@ -158,14 +150,13 @@ $paths= [
 ];
 
 foreach ($paths as $path) {
-    if (!is_file($path)) {
-      echo "not a file $path<br>\n";
-      continue;
-    }
-    echo "$path<br>\n";
-    $ogr = new OgrInfo($path);
-    //echo "<pre>ogrInfo="; print_r($ogr->info()); echo "\n";
-    echo "projcs=",$ogr->projcs,"\n";
-    echo "detect=",CoordSys::detect($ogr->projcs),"\n";
-    
+  if (!is_file($path)) {
+    echo "not a file $path<br>\n";
+    continue;
+  }
+  echo "$path<br>\n";
+  $ogr = new OgrInfo($path);
+  //echo "<pre>ogrInfo="; print_r($ogr->info()); echo "\n";
+  echo "projcs=",$ogr->projcs,"\n";
+  echo "detect=",CoordSys::detect($ogr->projcs),"\n";
 }

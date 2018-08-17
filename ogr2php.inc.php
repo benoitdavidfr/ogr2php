@@ -41,9 +41,9 @@ Class Ogr2php implements Iterator {
   
   /*PhpDoc: methods
   name:  __construct
-  title: function __construct(string $path, string $encoding='') - création de l'itérateur
+  title: function __construct(string $path) - création de l'itérateur
   */
-  function __construct(string $path, string $encoding='') {
+  function __construct(string $path) {
     //echo "Ogr2php::__construct()<br>\n";
     $this->path = $path;
   }
