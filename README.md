@@ -41,7 +41,8 @@ La classe Feature implémente le concept de Feature de GeoJSON.
 La classe Ogr2Php est un itérateur qui exécute une commande org2ogr sur un fichier OGR
 et renvoie à chaque itération un Feature.
 
-Elle comporte les méthodes suivantes.
+Outre les méthodes de l'[interface Iterator](http://php.net/manual/fr/class.iterator.php),
+elle comporte les méthodes suivantes.
 
 #### Méthodes
   
@@ -50,10 +51,11 @@ Elle comporte les méthodes suivantes.
 
 ### Le script sqlloader.php
 Le script sqlloader.php  est un chargeur de couches OGR dans une table MySQL.
-Il utilise la classe Ogr2Php ainsi que [yamldoc](https://github.com/benoitdavidfr/yamldoc) pour stocker
+Il s'éxécute en mode CLI et est auto-documenté.
+
+Il utilise la classe Ogr2Php ainsi que [yamldoc](https://github.com/benoitdavidfr/yamldoc) pour obtenir
 les définitions des sources de données géographiques.  
 Il nécessite la définition des paramètres de connexion MySQL dans le fichier mysqlparams.inc.php
 pour lequel on peut s'inspirer de mysqlparams.inc.php.model
 
 Une classe SqlLoader est définie pour rendre le code plus modulaire.
-
