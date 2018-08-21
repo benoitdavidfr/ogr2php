@@ -56,6 +56,8 @@ journal: |
   4-6/12/2016
     première version
 */
+$version = "21/8/2018 07:34";
+
 require_once __DIR__.'/../phplib/mysql.inc.php';
 require_once __DIR__.'/ogr2php.inc.php';
 
@@ -287,7 +289,7 @@ if (php_sapi_name() == 'cli') {
     echo "où <doc> vaut:\n";
     foreach ($docs as $id => $title)
       echo "$id - pour $title\n";
-    die();
+    die("version $version\n");
   }
   elseif ($argc == 2) {
     echo "usage: $argv[0] $argv[1] [<cmde> [<layer>]]\n";
@@ -328,13 +330,13 @@ else { // php_sapi_name() != 'cli'
   if (!isset($_GET['doc'])) {
     echo "</pre><h3>Documents possibles:</h3>\n";
     foreach($docs as $id => $title)
-      echo "<a href='?doc=$id'>$title<br>";
-    die();
+      echo "<a href='?doc=$id'>$title</a><br>";
+    die("<br>version $version\n");
   }
   elseif (!isset($_GET['action'])) {
     echo "</pre><h3>Actions possibles:</h3>\n";
     foreach ($actions as $code => $action)
-      echo "<a href='?doc=$_GET[doc]&amp;action=$code'>$action[title]<br>";
+      echo "<a href='?doc=$_GET[doc]&amp;action=$code'>$action[title]</a><br>";
     die();
   }
   elseif (!in_array($_GET['action'], ['yaml','shp','missing','loadall']) && !isset($_GET['layer'])) {
