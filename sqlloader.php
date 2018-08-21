@@ -5,11 +5,16 @@ title: sqlloader.php - module générique de chargement d'un produit dans une ba
 includes: [ ogr2php.inc.php ]
 classes:
 doc: |
-  La classe SqlLoader met en oeuvre un chargeur SQL en fonction de paramètres du produit à charger
-  Utilisation systématique du type Geometry
-  L'exécution du script effectue le chargement de qqs produits définis dans YamlDoc
+  Script en 2 parties:
+    1) Définition d'une classe SqlLoader qui met en oeuvre un chargeur SQL en fonction de paramètres du produit
+       à charger. Utilisation systématique du type Geometry
+    2) Mise en oeuvre du script pour effectuer le chargement de qqs produits définis dans YamlDoc
   
 journal: |
+  21/8/2018:
+    - amélioration de la version non CLI
+  20/8/2018:
+    - ajout possibilité d'insérer les données sans créer la table
   17/8/2018:
     - réparation a minima de la version non CLI
   15/8/2018:
@@ -75,13 +80,21 @@ class SqlLoader {
   }
   
   // affiche la liste des fichiers SHP absent de $shpPaths
-  static function shpFiles(string $dbpath, array $shpPaths): void {
-    $dirpath = SqlLoader::dataStorePath().'/'.$dbpath;
+  // $path est la liste des répertoires intermédiaires sans / ni en début ni en fin
+  static function shpFiles(string $dbpath, array $shpPaths, string $path=''): void {
+    //echo "shpFiles($dbpath, shpPaths)\n";
+    $dirpath = SqlLoader::dataStorePath()."/$dbpath/$path";
     $dir = dir($dirpath);
     while (false !== ($entry = $dir->read())) {
-      $ext = substr($entry, strrpos($entry, '.')+1);
-      if (in_array(strtoupper($ext), ['SHP']) && !in_array($entry, $shpPaths))
-        echo $entry."\n";
+      //echo "$entry\n";
+      if (is_file("$dirpath/$entry")) {
+        $ext = substr($entry, strrpos($entry, '.')+1);
+        if (in_array(strtoupper($ext), ['SHP']) && !in_array("$path/$entry", $shpPaths))
+          echo "$entry\n";
+      }
+      elseif (is_dir("$dirpath/$entry") && !in_array($entry,['.','..'])) {
+        self::shpFiles($dbpath, $shpPaths, $path ? "$path/$entry" : $entry);
+      }
     }
     $dir->close();
   }
@@ -141,10 +154,23 @@ class SqlLoader {
       foreach ($tableDef['indexes'] as $index_fields=>$unique) {
         $index_name = str_replace(',','_',$index_fields);
         $sqls[] = "create ".($unique ? 'unique ':'')
-          ."index ${table_name}_${index_name} on $mysql_database$table_name($index_fields);\n";
+          ."index ${table_name}_${index_name} on $mysql_database$table_name($index_fields)";
       }
     }
     return $sqls;
+  }
+  
+  /*PhpDoc: methods
+  name: truncate_table
+  title: "static function truncate_table(OgrInfo $ogr, array $tableDef, string $mysql_database): array - instruction SQL truncate table"
+  doc: |
+    $tableDef correspond à la définition des paramètres pour une table
+  */
+  static function truncate_table(array $tableDef, string $mysql_database): string {
+    //print_r($tableDef);
+    $mysql_database = ($mysql_database ? $mysql_database.'.' : '');
+    $table_name = $tableDef['_id'];
+    return "truncate $mysql_database$table_name";
   }
   
   static function insert_into(Ogr2Php $ogr, array $tableDef, string $mysql_database, int $precision, int $nbrmax=20): array {
@@ -237,6 +263,20 @@ $docs = [
   'ne_110m'=> "Natural Earth 110m",
   'ne_10m'=> "Natural Earth 10m",
 ];
+// les différentes actions proposées [code => [title, param]]
+$actions = [
+  'yaml'=> ['title'=> "affiche le document Yaml"],
+  'shp'=> ['title'=> "affiche la liste des fichiers SHP"],
+  'missing'=> ['title'=> "affiche la liste des fichiers SHP absent du document"],
+  'ogrinfo'=> ['title'=> "effectue un ogrinfo sur la couche", 'param'=> true],
+  'fields'=> ['title'=> "liste les champs de la couche", 'param'=> true],
+  'sql_create'=> ['title'=> "génère les ordres SQL pour créer la table de la couche", 'param'=> true],
+  'sql_insert'=> ['title'=> "génère les ordres SQL pour peupler la table de la couche", 'param'=> true],
+  'insert'=> ['title'=> "vide (truncate) puis peuple (insert) la table de la couche", 'param'=> true],
+  'load'=> ['title'=> "crée la table pour la couche et la peuple", 'param'=> true],
+  'drop'=> ['title'=> "supprime la table de la couche", 'param'=> true],
+  'loadall'=> ['title'=> "génère les ordres sh pour créer ttes les tables et les peupler"],
+];
 
 if (php_sapi_name() == 'cli') {
   if ($argc <= 1) {
@@ -256,16 +296,8 @@ if (php_sapi_name() == 'cli') {
     if (!($geodataDoc = new_doc($docid)))
       die("$docid inexistant dans le store\n");
     echo "où <cmde> vaut:\n";
-    echo "  yaml - affiche le document\n";
-    echo "  shp - affiche la liste des fichiers SHP\n";
-    echo "  missing - affiche la liste des fichiers SHP absent du document\n";
-    echo "  ogrinfo <layer> - effectue un ogrinfo sur la couche\n";
-    echo "  fields <layer> - liste les champs de la couche\n";
-    echo "  create_table <layer> - génère les ordres SQL pour créer la table correspondant à la couche\n";
-    echo "  insert_into <layer> - génère les orders SQL pour peupler la table correspondant à la couche\n";
-    echo "  load <layer> - crée la table pour la couche et la peuple\n";
-    echo "  drop_table <layer> - supprime la table de la couche\n";
-    echo "  loadall - génère les ordres sh pour créer ttes les tables et les peupler\n";
+    foreach ($actions as $code => $action)
+      echo "  $code ",isset($action['param'])?"<layer> ":'',"- $action[title]\n";
     echo "où <layer> vaut:\n";
     foreach ($geodataDoc->asArray()['layers'] as $lyrname => $layer) {
       if (isset($layer['ogrPath']))
@@ -286,9 +318,7 @@ if (php_sapi_name() == 'cli') {
     die();
   }
   else {
-    Store::setStoreid('pub'); // le store dans lequel est le doc
-    if (!($geodataDoc = new_doc("geodata/$argv[1]")))
-      die("$argv[1] inexistant dans le store pub\n");
+    $docid = $argv[1];
     $action = $argv[2];
     $lyrname = isset($argv[3]) ? $argv[3] : null;
   }
@@ -302,11 +332,11 @@ else { // php_sapi_name() != 'cli'
   }
   elseif (!isset($_GET['action'])) {
     echo "</pre><h3>Actions possibles:</h3>\n";
-    foreach(['yaml','ogrinfo','create_table','insert_into'] as $action)
-      echo "<a href='?doc=$_GET[doc]&amp;action=$action'>$action<br>";
+    foreach ($actions as $code => $action)
+      echo "<a href='?doc=$_GET[doc]&amp;action=$code'>$action[title]<br>";
     die();
   }
-  elseif (($_GET['action'] <> 'yaml') && !isset($_GET['layer'])) {
+  elseif (!in_array($_GET['action'], ['yaml','shp','missing','loadall']) && !isset($_GET['layer'])) {
     Store::setStoreid('pub'); // le store dans lequel est le doc
     if (!($geodataDoc = new_doc("geodata/$_GET[doc]")))
       die("geodata/$_GET[doc] inexistant dans le store\n");
@@ -317,12 +347,17 @@ else { // php_sapi_name() != 'cli'
     }
     die();
   }
+  else {
+    
+  }
+  $docid = $_GET['doc'];
   $action = $_GET['action'];
   $lyrname = isset($_GET['layer']) ? $_GET['layer'] : null;
-  Store::setStoreid('pub'); // le store dans lequel est le doc
-  if (!($geodataDoc = new_doc("geodata/$_GET[doc]")))
-    die("geodata/$_GET[doc] inexistant dans le store\n");
 }
+
+Store::setStoreid('pub'); // le store dans lequel est le doc
+if (!($geodataDoc = new_doc("geodata/$docid")))
+  die("$docid inexistant dans le store pub\n");
 
 if ($lyrname) {
   if (!isset($geodataDoc->asArray()['layers'][$lyrname]))
@@ -356,7 +391,8 @@ switch ($action) {
   case 'missing':
     $shpPaths = [];
     foreach ($geodataDoc->asArray()['layers'] as $layer)
-      $shpPaths[] = $layer['path'];
+      if (isset($layer['ogrPath']))
+        $shpPaths[] = $layer['ogrPath'];
     SqlLoader::shpFiles($geodataDoc->asArray()['dbpath'], $shpPaths);
     die("Fin ligne ".__LINE__."\n");
 
@@ -377,19 +413,35 @@ switch ($action) {
     }
     die("Fin ligne ".__LINE__."\n");
     
-  case 'create_table':
+  case 'sql_create':
     $ogr = new OgrInfo($lyrpaths[0]);
     foreach (SqlLoader::create_table($ogr, $tableDef, $geodataDoc->dbname()) as $sql)
       echo "$sql;\n";
     die();
   
-  case 'insert_into':
+  case 'sql_insert':
     $dbname = $geodataDoc->dbname();
     $precision = $geodataDoc->asArray()['precision'];
     foreach ($lyrpaths as $lyrpath) {
       $ogr = new Ogr2Php($lyrpath);
       foreach (SqlLoader::insert_into($ogr, $tableDef, $dbname, $precision, 0) as $sql)
         echo "$sql;\n";
+    }
+    die();
+
+  case 'insert':
+    echo "Insertion des données de $lyrname\n";
+    MySql::query(SqlLoader::truncate_table($tableDef, $geodataDoc->dbname()));
+    foreach ($lyrpaths as $lyrpath) {
+      $ogr2php = new Ogr2Php($lyrpath);
+      $precision = $geodataDoc->asArray()['precision'];
+      foreach (SqlLoader::insert_into($ogr2php, $tableDef, $geodataDoc->dbname(), $precision, 0) as $sql) {
+        try {
+          MySql::query($sql);
+        } catch(Exception $e) {
+          echo "Erreur SQL: ",$e->getMessage(),"\n";
+        }
+      }
     }
     die();
 
@@ -417,10 +469,11 @@ switch ($action) {
     die();
   
   case 'loadall':
+    $phpfile = php_sapi_name() == 'cli' ? $argv[0] : basename($_SERVER['SCRIPT_FILENAME']);
     foreach ($geodataDoc->asArray()['layers'] as $lyrname => $layer) {
       if (!isset($layer['ogrPath']))
         continue;
-      echo "php $argv[0] $argv[1] load $lyrname\n";
+      echo "php $phpfile $docid load $lyrname\n";
     }
     die();
       
