@@ -89,7 +89,8 @@ class SqlLoader {
       //echo "$entry\n";
       if (is_file("$dirpath/$entry")) {
         $ext = substr($entry, strrpos($entry, '.')+1);
-        if (in_array(strtoupper($ext), ['SHP']) && !in_array("$path/$entry", $shpPaths))
+        $pathentry = ($path ? "$path/$entry" : $entry);
+        if (in_array(strtoupper($ext), ['SHP']) && !in_array($pathentry, $shpPaths))
           echo "$entry\n";
       }
       elseif (is_dir("$dirpath/$entry") && !in_array($entry,['.','..'])) {
@@ -398,8 +399,13 @@ switch ($action) {
 
   case 'ogrinfo':
     foreach ($lyrpaths as $lyrpath) {
-      $ogr = new OgrInfo($lyrpath);
-      echo "ogrinfo="; print_r($ogr->info());
+      try {
+        $ogr = new OgrInfo($lyrpath);
+        echo "ogrinfo="; print_r($ogr->info());
+      }
+      catch(Exception $e) {
+        echo $e->getMessage(),"\n  sur $lyrpath\n";
+      }
     }
     die("Fin ligne ".__LINE__."\n");
   
