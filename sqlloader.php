@@ -11,6 +11,9 @@ doc: |
     2) Mise en oeuvre du script pour effectuer le chargement de qqs produits définis dans YamlDoc
   
 journal: |
+  6/10/2018:
+    - ajout RPG2016
+    - chargement d'un fichier sans générer ts les ordres SQL en mémoire
   21/8/2018:
     - amélioration de la version non CLI
   20/8/2018:
@@ -56,7 +59,7 @@ journal: |
   4-6/12/2016
     première version
 */
-$version = "21/8/2018 07:34";
+$version = "6/10/2018 18:00";
 
 require_once __DIR__.'/../phplib/mysql.inc.php';
 require_once __DIR__.'/ogr2php.inc.php';
@@ -176,6 +179,7 @@ class SqlLoader {
     return "truncate $mysql_database$table_name";
   }
   
+  // insert les enregistrements en créant le sql en mémoire
   static function insert_into(Ogr2Php $ogr, array $tableDef, string $mysql_database, int $precision, int $nbrmax=20): array {
     $transaction = true; // utilisation des transactions
     //$transaction = false; // utilisation des transactions
@@ -237,6 +241,74 @@ class SqlLoader {
     return $sqls;
   }
   
+  static function query(string $sql): void {
+    try {
+      MySql::query($sql);
+    } catch(Exception $e) {
+      echo "Erreur SQL: ",$e->getMessage(),"\n";
+    }
+  }
+  
+  // insert les enregistrements ss créer le sql en mémoire
+  static function insert_into2(Ogr2Php $ogr, array $tableDef, string $mysql_database, int $precision, int $nbrmax=20): void {
+    $transaction = true; // utilisation des transactions
+    //$transaction = false; // utilisation des transactions
+    $info = $ogr->info();
+    if (!isset($info['layername']))
+      throw new Exception("ogrinfo incorrect");
+    $mysql_database = ($mysql_database ? $mysql_database.'.' : '');
+    $table_name = $tableDef['_id'];
+    $fields = [];
+    foreach ($info['fields'] as $field) {
+      if (isset($tableDef['excludedFields']) && in_array($field['name'], $tableDef['excludedFields']))
+        continue;
+      $name = strtolower($field['name']);
+      if (in_array($name, self::$sql_reserved_words))
+        $name = "col_$name";
+      $fields[$field['name']] = $name;
+    }
+    //Geometry::setParam('precision', $precision);
+    //$sqls = ["truncate $mysql_database$table_name"];
+    if ($transaction)
+      self::query('start transaction');
+    $nbre = 0;
+    foreach ($ogr as $feature) {
+      $nbre++;
+      if ($transaction && ($nbre % 1000 == 0))
+        self::query('commit');
+      if ($nbrmax && ($nbre > $nbrmax)) {
+        if ($transaction)
+          self::query('commit');
+        return;
+      }
+      //echo "feature=$feature\n";
+      $sql = "insert into $mysql_database$table_name(".implode(',',$fields).",geom) values\n";
+      $values = [];
+      foreach ($fields as $propname => $field)
+        $values[] = '"'.str_replace('"','""',$feature->property($propname)).'"';
+      if (!$feature->geometry()) {
+        echo "geométrie vide pour :",implode(',',$values),"\n";
+        continue;
+      }
+      $sql .= "(".implode(',',$values);
+      $geom0 = $feature->geometry()->proj2D();
+      $geom = $geom0->filter($precision);
+      if (!$geom->isValid()) {
+        //echo "geometry non filtré=$geom0\n";
+        echo "geometry=",$geom->wkt(),"\n";
+        //throw new Exception("geometry invalide ligne ".__LINE__);
+        echo "geometry invalide pour :",implode(',',$values),"\n";
+        continue;
+      }
+      $wkt = $geom->wkt();
+      $sql .= ",ST_GeomFromText('$wkt'))";
+      self::query($sql);
+    }
+    if ($transaction)
+      self::query('commit');
+    return;
+  }
+  
   /*PhpDoc: methods
   name: drop_table
   title: "static function drop_table(OgrInfo $ogr, array $tableDef, string $mysql_database): string - instruction SQL drop table"
@@ -257,6 +329,7 @@ if (php_sapi_name()<>'cli') {
   echo "<!DOCTYPE HTML><html><head><meta charset='UTF-8'><title>sqlooader2</title></head><body><pre>\n";
 }
 ini_set('memory_limit', '1280M');
+//ini_set('memory_limit', '12800M');
 
 require_once __DIR__.'/../yamldoc/inc.php';
 
@@ -265,6 +338,7 @@ $docs = [
   'route500'=> "Route500",
   'ne_110m'=> "Natural Earth 110m",
   'ne_10m'=> "Natural Earth 10m",
+  'rpg2016'=> "RPG2016",
 ];
 // les différentes actions proposées [code => [title, param]]
 $actions = [
@@ -453,7 +527,7 @@ switch ($action) {
     }
     die();
 
-  case 'load':
+  case 'load0': // génère inutilement tous les ordres SQL en mémoire
     echo "Chargement de $lyrname\n";
     $ogrInfo = new OgrInfo($lyrpaths[0]);
     foreach (SqlLoader::create_table($ogrInfo, $tableDef, $geodataDoc->dbname()) as $sql)
@@ -471,6 +545,18 @@ switch ($action) {
     }
     die();
     
+  case 'load': // éxécute les ordres SQL dès qu'ils sont définis
+    echo "Chargement de $lyrname\n";
+    $ogrInfo = new OgrInfo($lyrpaths[0]);
+    foreach (SqlLoader::create_table($ogrInfo, $tableDef, $geodataDoc->dbname()) as $sql)
+      MySql::query($sql);
+    foreach ($lyrpaths as $lyrpath) {
+      $ogr2php = new Ogr2Php($lyrpath);
+      $precision = $geodataDoc->asArray()['precision'];
+      SqlLoader::insert_into2($ogr2php, $tableDef, $geodataDoc->dbname(), $precision, 0);
+    }
+    die();
+  
   case 'drop_table':
     $sql = SqlLoader::drop_table($tableDef, $geodataDoc->dbname());
     MySql::query($sql);
