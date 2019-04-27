@@ -1,0 +1,10 @@
+<?php
+/*PhpDoc:
+name: sqlparams.inc.php.model
+title: sqlparams.inc.php.model - modèle de définition des paramètres de connexion à SQL en fonction du serveur
+doc: |
+  Ce fichier est le modèle du fichier sqlparams.inc.php,
+  il doit être modifié avec les paramètres de connexion MySQL et enregistré sous le nom mysqlparams.inc.php
+*/
+return 'mysql://{login}:{mot_de_passe}@{serveurMySql}/{base_de_données}';
+return "host=172.17.0.4 dbname=postgres user=postgres password={mot_de_passe}";

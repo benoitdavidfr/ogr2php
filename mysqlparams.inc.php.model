@@ -1,9 +1,0 @@
-<?php
-/*PhpDoc:
-name: mysqlparams.inc.php.model
-title: mysqlparams.inc.php.model - modèle de définition des paramètres de connexion à MySQL en fonction du serveur
-doc: |
-  Ce fichier est le modèle du fichier mysqlparams.inc.php,
-  il doit être modifié avec les paramètres de connexion MySQL et enregistré sous le nom mysqlparams.inc.php
-*/
-return 'mysql://{login}:{mot_de_passe}@{serveurMySql}/{base_de_données}';

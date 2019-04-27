@@ -1,8 +1,8 @@
 <?php
 /*PhpDoc:
 name: sqlloader.php
-title: sqlloader.php - module générique de chargement d'un produit dans une base MySQL
-includes: [ ogr2php.inc.php ]
+title: sqlloader.php - module générique de chargement d'un produit dans une base SQL
+includes: [ ogr2php.inc.php, '../phplib/sql.inc.php' ]
 classes:
 doc: |
   Script en 2 parties:
@@ -11,6 +11,8 @@ doc: |
     2) Mise en oeuvre du script pour effectuer le chargement de qqs produits définis dans YamlDoc
   
 journal: |
+  27/4/2019:
+    - jout possibilité de chargement en PgSql
   6/10/2018:
     - ajout RPG2016
     - chargement d'un fichier sans générer ts les ordres SQL en mémoire
@@ -59,9 +61,10 @@ journal: |
   4-6/12/2016
     première version
 */
-$version = "6/10/2018 18:00";
+//$version = "6/10/2018 18:00";
+$version = "27/4/2019 5:00";
 
-require_once __DIR__.'/../phplib/mysql.inc.php';
+require_once __DIR__.'/../phplib/sql.inc.php';
 require_once __DIR__.'/ogr2php.inc.php';
 
 /*PhpDoc: classes
@@ -150,17 +153,25 @@ class SqlLoader {
         $sqlfields[] = "  $name $sqltype not null";
       }
     $sql .= implode(",\n",$sqlfields).",\n";
-    $sql .= "  geom Geometry not null\n";
-    $sql .= ")\n"
-         ."ENGINE = MYISAM\n"
-         ."DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci";
+    if (Sql::software() == 'MySql') {
+      $sql .= "  geom Geometry not null\n";
+      $sql .= ")\n"
+           ."ENGINE = MYISAM\n"
+           ."DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci";
+    }
+    else {
+      $sql .= "  geom Geography not null\n"
+            . ")\n";
+    }
     $sqls[] = $sql;
-    $sqls[] = "create spatial index ${table_name}_geom on $mysql_database$table_name(geom)";
-    if (isset($tableDef['indexes']) and $tableDef['indexes']) {
-      foreach ($tableDef['indexes'] as $index_fields=>$unique) {
-        $index_name = str_replace(',','_',$index_fields);
-        $sqls[] = "create ".($unique ? 'unique ':'')
-          ."index ${table_name}_${index_name} on $mysql_database$table_name($index_fields)";
+    if (Sql::software() == 'MySql') {
+      $sqls[] = "create spatial index ${table_name}_geom on $mysql_database$table_name(geom)";
+      if (isset($tableDef['indexes']) and $tableDef['indexes']) {
+        foreach ($tableDef['indexes'] as $index_fields=>$unique) {
+          $index_name = str_replace(',','_',$index_fields);
+          $sqls[] = "create ".($unique ? 'unique ':'')
+            ."index ${table_name}_${index_name} on $mysql_database$table_name($index_fields)";
+        }
       }
     }
     return $sqls;
@@ -217,7 +228,7 @@ class SqlLoader {
       $sql = "insert into $mysql_database$table_name(".implode(',',$fields).",geom) values\n";
       $values = [];
       foreach ($fields as $propname => $field)
-        $values[] = '"'.str_replace('"','""',$feature->property($propname)).'"';
+        $values[] = "'".str_replace("'","''",$feature->property($propname))."'";
       if (!$feature->geometry()) {
         echo "geométrie vide pour :",implode(',',$values),"\n";
         continue;
@@ -243,7 +254,7 @@ class SqlLoader {
   
   static function query(string $sql): void {
     try {
-      MySql::query($sql);
+      Sql::query($sql);
     } catch(Exception $e) {
       echo "Erreur SQL: ",$e->getMessage(),"\n";
     }
@@ -284,8 +295,10 @@ class SqlLoader {
       //echo "feature=$feature\n";
       $sql = "insert into $mysql_database$table_name(".implode(',',$fields).",geom) values\n";
       $values = [];
-      foreach ($fields as $propname => $field)
-        $values[] = '"'.str_replace('"','""',$feature->property($propname)).'"';
+      foreach ($fields as $propname => $field) {
+        //$values[] = '"'.str_replace('"','""',$feature->property($propname)).'"';
+        $values[] = "'".str_replace("'","''",$feature->property($propname))."'";
+      }
       if (!$feature->geometry()) {
         echo "geométrie vide pour :",implode(',',$values),"\n";
         continue;
@@ -339,6 +352,7 @@ $docs = [
   'ne_110m'=> "Natural Earth 110m",
   'ne_10m'=> "Natural Earth 10m",
   'rpg2016'=> "RPG2016",
+  'clc2012'=> "CLC 2012",
 ];
 // les différentes actions proposées [code => [title, param]]
 $actions = [
@@ -450,11 +464,11 @@ if ($lyrname) {
   }
 }
 
-if (!file_exists(__DIR__.'/mysqlparams.inc.php')) {
-  die("Cette commande n'est pas disponible car l'utilisation de MySQL n'a pas été paramétrée.<br>\n"
-    ."Pour la paramétrer voir le fichier <b>mysqlparams.inc.php.model</b><br>\n");
+if (!file_exists(__DIR__.'/sqlparams.inc.php')) {
+  die("Cette commande n'est pas disponible car l'utilisation de SQL n'a pas été paramétrée.<br>\n"
+    ."Pour la paramétrer voir le fichier <b>sqlparams.inc.php.model</b><br>\n");
 }
-MySql::open(require(__DIR__.'/mysqlparams.inc.php'));
+Sql::open(require(__DIR__.'/sqlparams.inc.php'));
 
 switch ($action) {
   case 'yaml':
@@ -513,13 +527,13 @@ switch ($action) {
 
   case 'insert':
     echo "Insertion des données de $lyrname\n";
-    MySql::query(SqlLoader::truncate_table($tableDef, $geodataDoc->dbname()));
+    Sql::query(SqlLoader::truncate_table($tableDef, $geodataDoc->dbname()));
     foreach ($lyrpaths as $lyrpath) {
       $ogr2php = new Ogr2Php($lyrpath);
       $precision = $geodataDoc->asArray()['precision'];
       foreach (SqlLoader::insert_into($ogr2php, $tableDef, $geodataDoc->dbname(), $precision, 0) as $sql) {
         try {
-          MySql::query($sql);
+          Sql::query($sql);
         } catch(Exception $e) {
           echo "Erreur SQL: ",$e->getMessage(),"\n";
         }
@@ -531,13 +545,13 @@ switch ($action) {
     echo "Chargement de $lyrname\n";
     $ogrInfo = new OgrInfo($lyrpaths[0]);
     foreach (SqlLoader::create_table($ogrInfo, $tableDef, $geodataDoc->dbname()) as $sql)
-      MySql::query($sql);
+      Sql::query($sql);
     foreach ($lyrpaths as $lyrpath) {
       $ogr2php = new Ogr2Php($lyrpath);
       $precision = $geodataDoc->asArray()['precision'];
       foreach (SqlLoader::insert_into($ogr2php, $tableDef, $geodataDoc->dbname(), $precision, 0) as $sql) {
         try {
-          MySql::query($sql);
+          Sql::query($sql);
         } catch(Exception $e) {
           echo "Erreur SQL: ",$e->getMessage(),"\n";
         }
@@ -549,7 +563,7 @@ switch ($action) {
     echo "Chargement de $lyrname\n";
     $ogrInfo = new OgrInfo($lyrpaths[0]);
     foreach (SqlLoader::create_table($ogrInfo, $tableDef, $geodataDoc->dbname()) as $sql)
-      MySql::query($sql);
+      Sql::query($sql);
     foreach ($lyrpaths as $lyrpath) {
       $ogr2php = new Ogr2Php($lyrpath);
       $precision = $geodataDoc->asArray()['precision'];
@@ -559,7 +573,7 @@ switch ($action) {
   
   case 'drop_table':
     $sql = SqlLoader::drop_table($tableDef, $geodataDoc->dbname());
-    MySql::query($sql);
+    Sql::query($sql);
     die();
   
   case 'loadall':

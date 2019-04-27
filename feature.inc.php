@@ -2,6 +2,7 @@
 /*PhpDoc:
 name:  feature.inc.php
 title: feature.inc.php - objet géographique
+includes: [ '../geometry/inc.php' ]
 classes:
 doc: |
   Gestion d'un objet géographique composé d'une liste de champs et d'une géométrie

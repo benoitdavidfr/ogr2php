@@ -1,13 +1,19 @@
-title: ogr2php - Interface OGR en Php et chargement de données géo dans MySql
+title: ogr2php - Interface OGR en Php et chargement de données géo dans MySql ou PgSql
 path: /ogr2php
 doc: |
   Ce module est composée de 2 parties:
     1) les classes OgrInfo, Ogr2Php et Feature qui proposent de lire les objets géographiques d'une couche Ogr,
       chaque Feature est défini par un dictionnaire de champs et une géométrie
-    2) un chargeur générique de couche Ogr dans MySQL qui utilise la première partie.
-  Le module repose sur geometry qui gère la géométrie WKT/GeoJSON
-  Il utilise yamldoc pour stocker les définitions de bases de données géographiques.
+    2) un chargeur générique de couche Ogr dans MySql/PgSql qui utilise la première partie.
+  Le module exploite:
+    - la bibliothèque Ogr et le package geometry qui gère la géométrie WKT/GeoJSON ;
+    - la possibilité pour ogr2ogr de générer des données en GeoJSON.
+    - yamldoc pour stocker les définitions de bases de données géographiques.
+    - le package /phplib/sql.inc.php comme interface avec la BD ;
+      les paramètres de connexion à la BD sont stockés dans le fichier sqlparams.inc.php
 journal: |
+  27/4/2019
+    - ajout de la possibilité de charger des données dans PgSql
   30/7-14/8/2018
     - reprise du code, création d'un git
     - remplacement de featurewkt.inc.php par feature.inc.php
