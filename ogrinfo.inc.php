@@ -138,7 +138,7 @@ title: function info($name=null) - retourne les infos sur la couche
 
 if (basename(__FILE__)<>basename($_SERVER['PHP_SELF'])) return;
 
-require_once __DIR__.'/../geometry/coordsys.inc.php';
+#require_once __DIR__.'/../gegeom/coordsys.inc.php';
 
 echo "<!DOCTYPE HTML><html><head><meta charset='UTF-8'><title>ogr2php</title></head><body><pre>\n";
 
@@ -159,5 +159,5 @@ foreach ($paths as $path) {
   $ogr = new OgrInfo($path);
   //echo "<pre>ogrInfo="; print_r($ogr->info()); echo "\n";
   echo "projcs=",$ogr->projcs,"\n";
-  echo "detect=",CoordSys::detect($ogr->projcs),"\n";
+  #echo "detect=",CoordSys::detect($ogr->projcs),"\n";
 }
