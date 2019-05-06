@@ -2,17 +2,20 @@
 /*PhpDoc:
 name:  feature.inc.php
 title: feature.inc.php - objet géographique
-includes: [ '../geometry/inc.php' ]
+includes: [ '../gegeom/gegeom.inc.php' ]
 classes:
 doc: |
   Gestion d'un objet géographique composé d'une liste de champs et d'une géométrie
 journal: |
+  6/5/2019:
+    - migration de geometry sur gegeom
   8/8/2018:
-  - un feature peut avoir une géometry null car cela se rencontre
+    - un feature peut avoir une géometry null car cela se rencontre
   1/8/2018:
-  - première version
+    - première version
 */
-require_once __DIR__.'/../geometry/inc.php';
+require_once __DIR__.'/../gegeom/gegeom.inc.php';
+use \gegeom\Geometry;
 
 /*PhpDoc: classes
 name:  Feature

@@ -2,7 +2,7 @@
 /*PhpDoc:
 name: sqlloader.php
 title: sqlloader.php - module générique de chargement d'un produit dans une base SQL
-includes: [ ogr2php.inc.php, '../phplib/sql.inc.php' ]
+includes: [ ogr2php.inc.php, '../phplib/sql.inc.php', ../yamldoc/inc.php, sqlparams.inc.php ]
 classes:
 doc: |
   Script en 2 parties:
@@ -11,6 +11,8 @@ doc: |
     2) Mise en oeuvre du script pour effectuer le chargement de qqs produits définis dans YamlDoc
   
 journal: |
+  6/5/2019:
+    - migration de geometry sur gegeom
   27/4/2019:
     - jout possibilité de chargement en PgSql
   6/10/2018:
@@ -262,6 +264,7 @@ class SqlLoader {
   
   // insert les enregistrements ss créer le sql en mémoire
   static function insert_into2(Ogr2Php $ogr, array $tableDef, string $mysql_database, int $precision, int $nbrmax=20): void {
+    //echo "precision=$precision\n";
     $transaction = true; // utilisation des transactions
     //$transaction = false; // utilisation des transactions
     $info = $ogr->info();
@@ -308,7 +311,7 @@ class SqlLoader {
       $geom = $geom0->filter($precision);
       if (!$geom->isValid()) {
         //echo "geometry non filtré=$geom0\n";
-        echo "geometry=",$geom->wkt(),"\n";
+        //echo "geometry=",$geom->wkt(),"\n";
         //throw new Exception("geometry invalide ligne ".__LINE__);
         echo "geometry invalide pour :",implode(',',$values),"\n";
         continue;
@@ -468,7 +471,7 @@ if (!file_exists(__DIR__.'/sqlparams.inc.php')) {
   die("Cette commande n'est pas disponible car l'utilisation de SQL n'a pas été paramétrée.<br>\n"
     ."Pour la paramétrer voir le fichier <b>sqlparams.inc.php.model</b><br>\n");
 }
-Sql::open(require(__DIR__.'/sqlparams.inc.php'));
+Sql::open(require __DIR__.'/sqlparams.inc.php');
 
 switch ($action) {
   case 'yaml':

@@ -17,6 +17,7 @@ journal: |
     - amélioration
   29/5/2016:
     - première version
+includes: [ ../geometry/coordsys.inc.php ]
 */
 /*PhpDoc: classes
 name:  Class OgrInfo

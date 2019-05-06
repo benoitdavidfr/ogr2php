@@ -12,6 +12,8 @@ doc: |
     - le package /phplib/sql.inc.php comme interface avec la BD ;
       les paramètres de connexion à la BD sont stockés dans le fichier sqlparams.inc.php
 journal: |
+  6/5/2019:
+    - migration de geometry sur gegeom
   27/4/2019
     - ajout de la possibilité de charger des données dans PgSql
   30/7-14/8/2018
@@ -34,3 +36,4 @@ phpIncludes:
   - /ogr2php/ogrinfo.inc.php
   - /ogr2php/ogr2php.inc.php
   - /ogr2php/feature.inc.php
+  - /ogr2php/sqlparams.inc.php
