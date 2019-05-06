@@ -147,9 +147,9 @@ class SqlLoader {
         $sqltype = (isset($tableDef['fieldtypes'][$field['name']])) ?
             $tableDef['fieldtypes'][$field['name']]
               : self::sqltype($field['type']);
-  //    print_r($field);
+        //print_r($field);
         $name = strtolower($field['name']);
-  // cas d'utilisation d'un mot-clé SQL comme nom de champ
+        // cas d'utilisation d'un mot-clé SQL comme nom de champ
         if (in_array($name, self::$sql_reserved_words))
           $name = "col_$name";
         $sqlfields[] = "  $name $sqltype not null";
@@ -314,6 +314,7 @@ class SqlLoader {
         //echo "geometry=",$geom->wkt(),"\n";
         //throw new Exception("geometry invalide ligne ".__LINE__);
         echo "geometry invalide pour :",implode(',',$values),"\n";
+        echo "erreurs: ",json_encode($geom->getErrors()),"\n";
         continue;
       }
       $wkt = $geom->wkt();
