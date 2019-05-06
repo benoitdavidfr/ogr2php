@@ -13,6 +13,7 @@ doc: |
 journal: |
   6/5/2019:
     - migration de geometry sur gegeom
+    - lorsque la géométrie est trop petite, une erreur particulière est affichée au chargement
   27/4/2019:
     - jout possibilité de chargement en PgSql
   6/10/2018:
@@ -309,7 +310,11 @@ class SqlLoader {
       $sql .= "(".implode(',',$values);
       $geom0 = $feature->geometry()->proj2D();
       $geom = $geom0->filter($precision);
-      if (!$geom->isValid()) {
+      if (!$geom) {
+        echo "geometry trop petite pour :",implode(',',$values),"\n";
+        continue;
+      }
+      elseif (!$geom->isValid()) {
         //echo "geometry non filtré=$geom0\n";
         //echo "geometry=",$geom->wkt(),"\n";
         //throw new Exception("geometry invalide ligne ".__LINE__);
