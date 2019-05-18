@@ -4,7 +4,7 @@ name:  ogrinfo.inc.php
 title: ogrinfo.inc.php - Infos sur une source Ogr
 classes:
 doc: |
-  La classe OgrInfopermet d'obtenir diverses informations sur une couche OGR (projection, nbre d'objets, champs, ...)
+  La classe OgrInfo permet d'obtenir diverses informations sur une couche OGR (projection, nbre d'objets, champs, ...)
 journal: |
   8/8/2018:
     - amélioration pour lire Natural Earth
@@ -17,7 +17,7 @@ journal: |
     - amélioration
   29/5/2016:
     - première version
-includes: [ ../geometry/coordsys.inc.php ]
+includes: [ ]
 */
 /*PhpDoc: classes
 name:  Class OgrInfo

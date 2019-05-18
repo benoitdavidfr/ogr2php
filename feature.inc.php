@@ -64,19 +64,19 @@ class Feature {
 
   /*PhpDoc: methods
   name:  properties
-  title: function properties() { return $this->properties; }
+  title: "function properties(): array { return $this->properties; }"
   */
-  function properties() { return $this->properties; }
+  function properties(): array { return $this->properties; }
   
   /*PhpDoc: methods
   name:  properties
-  title: function property()
+  title: "function property(string $name) { return $this->properties[$name]; }"
   */
   function property(string $name) { return $this->properties[$name]; }
   
   /*PhpDoc: methods
   name:  wkt
-  title: function geometry() - recherche la géométrie
+  title: "function geometry(): ?Geometry { return $this->geometry; } - retourne la géométrie"
   */
   function geometry(): ?Geometry { return $this->geometry; }
   

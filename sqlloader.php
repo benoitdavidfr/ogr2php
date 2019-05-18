@@ -2,7 +2,6 @@
 /*PhpDoc:
 name: sqlloader.php
 title: sqlloader.php - module générique de chargement d'un produit dans une base SQL
-includes: [ ogr2php.inc.php, '../phplib/sql.inc.php', ../yamldoc/inc.php, sqlparams.inc.php ]
 classes:
 doc: |
   Script en 2 parties:
@@ -63,11 +62,12 @@ journal: |
     Il est donc plus simple d'utiliser systématiquement le type Geometry plutot que MultiPolygon
   4-6/12/2016
     première version
+includes: [ ogr2php.inc.php, '../../phplib/sql.inc.php', ../../yamldoc/inc.php, sqlparams.inc.php ]
 */
 //$version = "6/10/2018 18:00";
 $version = "27/4/2019 5:00";
 
-require_once __DIR__.'/../phplib/sql.inc.php';
+require_once __DIR__.'/../../phplib/sql.inc.php';
 require_once __DIR__.'/ogr2php.inc.php';
 
 /*PhpDoc: classes
@@ -353,7 +353,7 @@ if (php_sapi_name()<>'cli') {
 ini_set('memory_limit', '1280M');
 //ini_set('memory_limit', '12800M');
 
-require_once __DIR__.'/../yamldoc/inc.php';
+require_once __DIR__.'/../../yamldoc/inc.php';
 
 // les différents documents décrivant des SD
 $docs = [

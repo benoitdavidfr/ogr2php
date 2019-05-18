@@ -1,5 +1,5 @@
 title: ogr2php - Interface OGR en Php et chargement de données géo dans MySql ou PgSql
-path: /ogr2php
+path: /geovect/ogr2php
 doc: |
   Ce module est composée de 2 parties:
     1) les classes OgrInfo, Ogr2Php et Feature qui proposent de lire les objets géographiques d'une couche Ogr,
@@ -29,11 +29,14 @@ journal: |
     - fusion de la version provenant de geofla avec celle provenant de geoapi.fr/ppr
   29/5/2016
     - première version
+requires:
+  - /geovect/gegeom
+  - /geovect/geometry
 htmlFiles:
 phpScripts:
-  - /ogr2php/sqlloader.php
+  - /geovect/ogr2php/sqlloader.php
 phpIncludes:
-  - /ogr2php/ogrinfo.inc.php
-  - /ogr2php/ogr2php.inc.php
-  - /ogr2php/feature.inc.php
-  - /ogr2php/sqlparams.inc.php
+  - /geovect/ogr2php/ogrinfo.inc.php
+  - /geovect/ogr2php/ogr2php.inc.php
+  - /geovect/ogr2php/feature.inc.php
+  - /geovect/ogr2php/sqlparams.inc.php
