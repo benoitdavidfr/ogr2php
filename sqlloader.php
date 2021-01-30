@@ -80,6 +80,26 @@ require_once __DIR__.'/ogr2php.inc.php';
 
 use Symfony\Component\Yaml\Yaml;
 
+class Chrono {
+  protected $startTime;
+  protected $prevTime;
+  protected $prevNbre=0;
+  
+  function __construct() {
+    $this->startTime = microtime(true);
+    $this->prevTime = $this->startTime;
+  }
+  
+  function show(int $nbre) { // affichage du chrono pour $nbre itérations
+    $cTime = microtime(true);
+    if ((($cTime - $this->startTime) > 0) && (($cTime - $this->prevTime) > 0))
+      printf("nbre=%d k, débit moy.=%.1f features/s, débit inst.=%.1f features/s\r",
+        $nbre/1000, $nbre / ($cTime - $this->startTime), ($nbre - $this->prevNbre) / ($cTime - $this->prevTime));
+    $this->prevTime = $cTime;
+    $this->prevNbre = $nbre;
+  }
+};
+
 /*PhpDoc: classes
 name:  SqlLoader
 title: class SqlLoader - Classe regroupant les fonctions utiles au chargement
@@ -206,11 +226,9 @@ class SqlLoader {
       if (isset($this->dataset[$key]))
         $comment[$key] = $this->dataset[$key];
     }
+    $comment['loaded'] = "loaded by sqlloader.php on ".date(DATE_ATOM);
     //echo json_encode($comment, JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE),"\n";
-    if (!$comment)
-      return '';
-    else
-      return json_encode($comment, JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE);
+    return json_encode($comment, JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE);
   }
   
   /*PhpDoc: methods
@@ -354,10 +372,18 @@ class SqlLoader {
     return $sqls;
   }*/
   
+  
   // insert les enregistrements ss créer le sql en mémoire
-  function insert_into2(Ogr2Php $ogr, $nbrmax=0): void {
+  function insert_into2(Ogr2Php $ogr): void {
+    $chrono = new Chrono;
     $transaction = true; // utilisation des transactions
     //$transaction = false; // utilisation des transactions
+    $nbrmax = $this->dataset['layers'][$this->lyrName]['nbreMax'] ?? 0;
+    if ($nbrmax)
+      printf("nbrmax=%.1f k\n", $nbrmax/1000);
+    $skip = $this->dataset['layers'][$this->lyrName]['skip'] ?? 0;
+    if ($skip)
+      printf("skip=%.1f k\n", $skip/1000);
     $info = $ogr->info();
     if (!isset($info['layername']))
       throw new Exception("ogrinfo incorrect");
@@ -372,37 +398,44 @@ class SqlLoader {
         $name = "col_$name";
       $fields[$field['name']] = $name;
     }
-    //Geometry::setParam('precision', $precision);
-    //$sqls = ["truncate $mysql_database$table_name"];
     if ($transaction)
       self::query('start transaction');
     $nbre = 0;
     foreach ($ogr as $feature) {
       $nbre++;
-      if ($transaction && ($nbre % 1000 == 0))
-        self::query('commit');
-      if ($nbrmax && ($nbre > $nbrmax)) {
+      if (($skip <> 0) && ($nbre <= $skip)) {
+        if ($nbre % 10000 == 0)
+          $chrono->show($nbre);
+        continue;
+      }
+      if (($nbre % 1000 == 0)) {
         if ($transaction)
           self::query('commit');
+        $chrono->show($nbre);
+      }
+      if ($nbrmax && ($nbre > $nbrmax + $skip)) {
+        if ($transaction)
+          self::query('commit');
+        $chrono->show($nbre-1);
+        echo "\n";
         return;
       }
       //echo "feature=$feature\n";
       $sql = "insert into $table_name(".implode(',',$fields).",geom) values\n";
       $values = [];
       foreach ($fields as $propname => $field) {
-        //$values[] = '"'.str_replace('"','""',$feature->property($propname)).'"';
-        $values[] = "'".str_replace("'","''",$feature->properties[$propname])."'";
+        $values[] = "'".str_replace("'","''",$feature->properties()[$propname])."'";
       }
-      if (!$feature->geometry) {
+      if (!$feature->geometry()) {
         echo "geométrie vide pour :",implode(',',$values),"\n";
         continue;
       }
       $sql .= "(".implode(',',$values);
-      $geom0 = $feature->geometry->proj2D();
+      $geom0 = $feature->geometry()->proj2D();
       $geom = $geom0->filter($this->dataset['precision']);
       if (!$geom) {
         echo "geometry trop petite pour :",implode(',',$values),"\n";
-        continue;
+        $geom = $feature->geometry()->proj2D();
       }
       elseif (!$geom->isValid()) {
         //echo "geometry non filtré=$geom0\n";
@@ -419,6 +452,8 @@ class SqlLoader {
     }
     if ($transaction)
       self::query('commit');
+    $chrono->show($nbre);
+    echo "\n";
     return;
   }
   
@@ -426,8 +461,8 @@ class SqlLoader {
   name: drop_table
   title: "static function drop_table(array $tableDef): string - instruction SQL drop table"
   */
-  static function drop_table(array $tableDef): string {
-    return "drop table if exists $tableDef[_id]";
+  function drop_table(): string {
+    return "drop table if exists ".$this->lyrName;
   }
 };
 
@@ -443,14 +478,12 @@ $menu = [
   'ogrinfo'=> ['title'=> "effectue un ogrinfo sur la couche", 'param'=> true],
   'fields'=> ['title'=> "liste les champs de la couche", 'param'=> true],
   'sql_create'=> ['title'=> "génère les ordres SQL pour créer la table de la couche", 'param'=> true],
-  //'sql_insert'=> ['title'=> "génère les ordres SQL pour peupler la table de la couche", 'param'=> true],
-  //'insert'=> ['title'=> "vide (truncate) puis peuple (insert) la table de la couche", 'param'=> true],
   'load'=> ['title'=> "crée la table pour la couche et la peuple", 'param'=> true],
   'drop'=> ['title'=> "supprime la table de la couche", 'param'=> true],
   'loadall'=> ['title'=> "génère les ordres sh pour créer ttes les tables et les peupler"],
 ];
 
-//ini_set('memory_limit', '1G');
+ini_set('memory_limit', '1G');
 //ini_set('memory_limit', '10G');
 
 $datasets = Yaml::parseFile(__DIR__.'/datasets.yaml')['datasets'];
@@ -582,16 +615,18 @@ switch ($action) {
   case 'load': { // éxécute les ordres SQL dès qu'ils sont définis
     echo "Chargement de $lyrname\n";
     $ogrInfo = new OgrInfo($dataset->lyrPaths()[0]);
-    foreach ($dataset->create_table($ogrInfo) as $sql)
-      Sql::query($sql);
+    //$skip = $dataset->layers()[$lyrname]['skip'] ?? 0;
+    //if ($skip)
+      foreach ($dataset->create_table($ogrInfo) as $sql)
+        Sql::query($sql);
     foreach ($dataset->lyrPaths() as $lyrpath) {
       $dataset->insert_into2(new Ogr2Php($lyrpath));
     }
     die();
   }
   
-  case 'drop_table': {
-    Sql::query(SqlLoader::drop_table($tableDef));
+  case 'drop': {
+    Sql::query($dataset->drop_table());
     die();
   }
   

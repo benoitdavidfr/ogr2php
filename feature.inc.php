@@ -24,6 +24,21 @@ methods:
 doc: |
 */
 class Feature {
+  protected string $geojson;
+  
+  function __construct(string $geojson) { $this->geojson = $geojson; }
+  
+  function __toString(): string { return $this->geojson; } 
+  
+  function geojson(): array { return json_decode($this->geojson, true); }
+  
+  function properties(): array { return json_decode($this->geojson, true)['properties']; }
+  
+  function geometry(): Geometry { return Geometry::fromGeoJSON(json_decode($this->geojson, true)['geometry']); }
+};
+
+/* Avant 30/1/2021
+class Feature {
   public $id=null; // éventuel id
   public array $properties; // dictionnaire des champs
   public ?Geometry $geometry=null; // objet Geometry ou null
@@ -33,7 +48,7 @@ class Feature {
   title: function __construct(string $param)
   doc: |
     $param est un GeoJSON sous la forme d'un string
-  */
+  *//*
   function __construct(string $param) {
     $feature = json_decode($param, true);
     if ($feature['type']<>'Feature') {
@@ -70,7 +85,7 @@ class Feature {
         }
         $this->geometry = $param['geometry'];
       }
-    }*/
+    }*//*
     }
   }
 
@@ -95,7 +110,7 @@ class Feature {
   /*PhpDoc: methods
   name:  geojson
   title: "function geojson(): array - retourne un tableau Php qui encodé en JSON correspondra à la geometry GeoJSON"
-  */
+  *//*
   function geojson(): array {
     return [
       'type'=> 'Feature',
@@ -110,9 +125,9 @@ class Feature {
   /*PhpDoc: methods
   name:  __toString
   title: function __toString() - représentation GeoJSON
-  */
+  *//*
   function __toString(): string { return json_encode($this->geojson()); }
-};
+};*/
 
 
 if (basename(__FILE__)<>basename($_SERVER['PHP_SELF'])) return;
