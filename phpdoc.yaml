@@ -6,7 +6,7 @@ doc: |
       chaque Feature est défini par un dictionnaire de champs et une géométrie
     2) un chargeur générique de couche Ogr dans MySql/PgSql qui utilise la première partie.
   Le module exploite:
-    - la bibliothèque Ogr et le package geometry qui gère la géométrie WKT/GeoJSON ;
+    - la bibliothèque Ogr et le package gegeom qui gère la géométrie WKT/GeoJSON ;
     - la possibilité pour ogr2ogr de générer des données en GeoJSON.
     - yamldoc pour stocker les définitions de bases de données géographiques.
     - le package /phplib/sql.inc.php comme interface avec la BD ;

@@ -24,41 +24,53 @@ methods:
 doc: |
 */
 class Feature {
-  public $properties; // dictionnaire des champs
-  public $geometry; // objet Geometry ou null
+  public $id=null; // éventuel id
+  public array $properties; // dictionnaire des champs
+  public ?Geometry $geometry=null; // objet Geometry ou null
   
   /*PhpDoc: methods
   name:  __construct
-  title: function __construct($param)
+  title: function __construct(string $param)
   doc: |
-    $param peut être:
-      - un GeoJSON sous la forme d'un string
-      - un array avec un élément properties et un autre geometry qui doit être un Geometry
+    $param est un GeoJSON sous la forme d'un string
   */
-  function __construct($param) {
-    if (is_string($param)) {
-      $feature = json_decode($param, true);
-      if ($feature['type']<>'Feature') {
-        print_r($feature);
-        throw new Exception("GeoJSON '$feature' not a feature");
-      }
-      $this->properties = $feature['properties'];
-      if (!$feature['geometry'])
-        $this->geometry = null;
-      else
-        $this->geometry = Geometry::fromGeoJSON($feature['geometry']);
+  function __construct(string $param) {
+    $feature = json_decode($param, true);
+    if ($feature['type']<>'Feature') {
+      throw new Exception("GeoJSON '$param' not a feature");
     }
-    elseif (is_array($param)) {
-      if (!is_array($param['properties']))
-        throw new Exception("dans Feature::__construct(), param[properties] doit être un array");
-      $this->properties = $param['properties'];
-      if (!is_object($param['geometry']) || !is_subclass_of($param['geometry'], 'Geometry')) {
-        //echo "param[geometry]=$param[geometry]<br>\n";
-        //print_r($param['geometry']);
-        throw new Exception(
-          "Erreur dans Feature::__construct(), param[geometry] doit être un objet d'une sous-classe de Geometry");
+    if (isset($feature['id']))
+      $this->id = $feature['id'];
+    $this->properties = $feature['properties'];
+    if (isset($feature['geometry']))
+      $this->geometry = Geometry::fromGeoJSON($feature['geometry']);
+    {/* Ancienne version < 28/1/2021
+    function __construct($param) {
+      if (is_string($param)) {
+        $feature = json_decode($param, true);
+        if ($feature['type']<>'Feature') {
+          print_r($feature);
+          throw new Exception("GeoJSON '$feature' not a feature");
+        }
+        $this->properties = $feature['properties'];
+        if (!$feature['geometry'])
+          $this->geometry = null;
+        else
+          $this->geometry = Geometry::fromGeoJSON($feature['geometry']);
       }
-      $this->geometry = $param['geometry'];
+      elseif (is_array($param)) {
+        if (!is_array($param['properties']))
+          throw new Exception("dans Feature::__construct(), param[properties] doit être un array");
+        $this->properties = $param['properties'];
+        if (!is_object($param['geometry']) || !is_subclass_of($param['geometry'], 'Geometry')) {
+          //echo "param[geometry]=$param[geometry]<br>\n";
+          //print_r($param['geometry']);
+          throw new Exception(
+            "Erreur dans Feature::__construct(), param[geometry] doit être un objet d'une sous-classe de Geometry");
+        }
+        $this->geometry = $param['geometry'];
+      }
+    }*/
     }
   }
 
@@ -66,19 +78,19 @@ class Feature {
   name:  properties
   title: "function properties(): array { return $this->properties; }"
   */
-  function properties(): array { return $this->properties; }
+  //function properties(): array { return $this->properties; }
   
   /*PhpDoc: methods
   name:  properties
   title: "function property(string $name) { return $this->properties[$name]; }"
   */
-  function property(string $name) { return $this->properties[$name]; }
+  //function property(string $name) { return $this->properties[$name]; }
   
   /*PhpDoc: methods
   name:  wkt
   title: "function geometry(): ?Geometry { return $this->geometry; } - retourne la géométrie"
   */
-  function geometry(): ?Geometry { return $this->geometry; }
+  //function geometry(): ?Geometry { return $this->geometry; }
   
   /*PhpDoc: methods
   name:  geojson
@@ -87,8 +99,11 @@ class Feature {
   function geojson(): array {
     return [
       'type'=> 'Feature',
+    ]
+    + ($this->id ? ['id'=> $this->id] : [])
+    + [
       'properties'=> $this->properties,
-      'geometry'=> $this->geometry->geojson(),
+      'geometry'=> $this->geometry ? $this->geometry->asArray() : null,
     ];
   }
   

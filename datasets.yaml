@@ -1,0 +1,218 @@
+title: description des jeux de données chargeables par SqlLoader
+$schema:
+  title: schema de la liste des jeux de données
+  $schema: http://json-schema.org/draft-06/schema#
+  $id: /geovect/ogr2Php/datasets.schema
+  definitions:
+    layer:
+      description: description d'une couche
+      type: object
+      additionalProperties: false
+      required: [title, ogrPath]
+      properties:
+        title:
+          description: nom de la couche
+          type: string
+        ogrPath:
+          description: chemin(s) du/des fichier(s) OGR à l'intérieur de dbpath, sans / ni au début nin à la fin
+          oneOf:
+            - description: chemin unique
+              type: string
+            - description: liste de chemins
+              type: array
+              items:
+                type: string
+        comment:
+          description: commentaire, par exemple anomalie du JD expliquant des paramètres de chargement particuliers
+          type: string
+        excludedFields:
+          description: liste des noms de champ à exclure du chargement
+          type: array
+          items: {type: string}
+        idpkey:
+          decription: nécessité de créer une clé primaire adhoc
+          type: boolean
+        indexes:
+          description: |
+            liste des indexes à créer sous la forme d'un dictionnaire indexé sur un nom d'attribut ou une liste de noms
+            d'attributs séparés par une ','
+          type: object
+          patternProperties:
+            ^[-a-zA-Z0-9_]*$:
+              description: |
+                Valeurs posssibles:
+                  - primary -> clé primaire
+                  - unique -> index unique
+                  - multiple -> index non unique
+              type: string
+              enum:
+                - primary
+                - unique
+                - multiple
+    dataset:
+      description: description du jeu de données
+      type: object
+      additionalProperties: false
+      required: [title, dbpath, layers, sqlSchemas]
+      properties:
+        title:
+          description: nom du jeu de données
+          type: string
+        publisher:
+          description: éditeur du jeu de données, si possible son nom de domaine internet
+          type: string
+        conformsTo:
+          description: définition des spécifications
+          type: string
+          examples:
+            - ROUTE 500, version 3.0, avril 2020, IGN (ROUTE500_3-0)
+        issued:
+          description: date de publication du jeu de données
+          type: string
+        spatial:
+          description: extension spatiale sous la forme d'un code ISO
+          type: string
+          examples:
+            - FXX
+        format:
+          description: format de publication initiale, si possible comme type MIME
+          type: string
+          examples:
+            - application/zipped-shapefile
+        identifier:
+          description: un identifiant du jeu de données, par exemple URI de téléchargement
+          type: string
+          examples:
+            - ftp://ROUTE_500_ext:UqueemievaiDah3k@ftp3.ign.fr/ROUTE500_3-0__SHP_LAMB93_FXX_2020-08-04.7z.001
+        dbpath:
+          description: chemin d'accès principal pour le chargement à partir du répertoire des données
+          type: string
+        precision:
+          description: nbres de chiffres après la virgule à conserver au chargement
+          type: integer
+        layers:
+          description: dictionnaire des couches indexées par leur id
+          type: object
+          patternProperties:
+            ^[-a-zA-Z0-9_]*$:
+              $ref: '#/definitions/layer'
+        sqlSchemas:
+          description: URI du schema SQL (base MySql ou base + schema PgSql) en fonction du serveur SQL
+          type: object
+          patternProperties:
+            ^(mysql|pgsql)://[-a-zA-Z0-9@_\.:]+$:
+              type: string
+  type: object
+  additionalProperties: false
+  required: [title, datasets]
+  properties:
+    title:
+      description: nom du document
+      type: string
+    $schema:
+      description: schema JSON du document
+      oneOf:
+        - description: schema in-line
+          $ref: http://json-schema.org/schema#
+        - description: référence vers un fichier séparé
+          type: string
+    datasets:
+      description: dictionnaire des jeux de données indexés par un id
+      type: object
+      patternProperties:
+        ^[-a-zA-Z0-9_]*$:
+          $ref: '#/definitions/dataset'
+      
+datasets:
+  route500:
+    # Description de ROUTE 500
+    title: ROUTE 500
+    publisher: ign.fr
+    conformsTo: ROUTE 500, version 3.0, avril 2020 (ROUTE500_3-0)
+    issued: '2020-08-04'
+    spatial: FXX
+    format: application/zipped-shapefile
+    identifier: ftp://ROUTE_500_ext:UqueemievaiDah3k@ftp3.ign.fr/ROUTE500_3-0__SHP_LAMB93_FXX_2020-08-04.7z.001
+    # chemins d'accès principal pour le chargement à partir du répertoire des données
+    dbpath:  route500/ROUTE500_3-0__SHP_LAMB93_FXX_2020-08-04/ROUTE500/1_DONNEES_LIVRAISON_2020-08-00223/R500_3-0_SHP_LAMB93_FXX-ED201
+    # Je considère que la résolution de Route 500 est de 40 m
+    # (360° = 40 000 km => 40 m = 360 / 40 000 000 * 40 = 0,00036 °)
+    # J'arrondis donc au chargement dans MySQL les coordonnées à 4 décimales
+    precision: 4
+    layers: 
+      limite_administrative:
+        title: Limite administrative
+        ogrPath: ADMINISTRATIF/LIMITE_ADMINISTRATIVE.shp
+        indexes:
+          id_rte500: primary
+      commune:
+        title: commune
+        ogrPath: ADMINISTRATIF/COMMUNE.shp
+        indexes:
+          id_rte500: primary
+      noeud_commune:
+        title: noeud_commune
+        ogrPath: RESEAU_ROUTIER/NOEUD_COMMUNE.shp
+        indexes:
+          id_rte500: primary
+          nom_comm: multiple
+          insee_comm: unique
+          statut: multiple
+      noeud_routier:
+        title: noeud_routier
+        ogrPath: RESEAU_ROUTIER/NOEUD_ROUTIER.shp
+        indexes:
+          id_rte500: primary
+      troncon_route:
+        title: troncon de route
+        ogrPath: RESEAU_ROUTIER/TRONCON_ROUTE.shp
+        indexes:
+          id_rte500: primary
+      aerodrome:
+        title: aerodrome
+        comment: |
+          id_rte500 n'est pas une clé primaire, erreur
+        ogrPath: RESEAU_ROUTIER/AERODROME.shp
+        idpkey: true
+        indexes:
+          id_rte500: multiple
+          toponyme: multiple
+      communication_restreinte:
+        title: Communication restreinte
+        ogrPath: RESEAU_ROUTIER/COMMUNICATION_RESTREINTE.shp
+        indexes:
+          id_rte500: primary
+      noeud_ferre:
+        title: Noeud ferré
+        ogrPath: RESEAU_FERRE/NOEUD_FERRE.shp
+        indexes:
+          id_rte500: primary
+      troncon_voie_ferree:
+        title: Voie ferrée
+        ogrPath: RESEAU_FERRE/TRONCON_VOIE_FERREE.shp
+        indexes:
+          id_rte500: primary
+          nature: multiple
+          energie: multiple
+          classement: multiple
+      cote_frontiere:
+        title: Côte et frontière internationale
+        ogrPath: HABILLAGE/COTE_FRONTIERE.shp
+        indexes:
+          id_rte500: primary
+      troncon_hydrographique:
+        title: Cours d’eau
+        ogrPath: HABILLAGE/TRONCON_HYDROGRAPHIQUE.shp
+        indexes:
+          id_rte500: primary
+      zone_occupation_sol:
+        title: zone_occupation_sol
+        ogrPath: HABILLAGE/ZONE_OCCUPATION_SOL.shp
+        indexes:
+          nature: multiple
+    sqlSchemas: # nom du schema SQL (base MySql ou base + schema PgSql) en fonction de l'URI du serveur SQL
+      mysql://root@172.17.0.3: route500 # MySql docker
+      mysql://bdavid@mysql-bdavid.alwaysdata.net: bdavid_route500
+      pgsql://docker@172.17.0.4: route500/public
+      pgsql://benoit@db207552-001.dbaas.ovh.net:35250: route500/public
+  
