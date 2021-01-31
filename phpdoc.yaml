@@ -12,6 +12,8 @@ doc: |
     - le package /phplib/sql.inc.php comme interface avec la BD ;
       les paramètres de connexion à la BD sont stockés dans le fichier sqlparams.inc.php
 journal: |
+  29-30/1/2021:
+    - restructuration de sqlloader.php et de feature.inc.php
   6/5/2019:
     - migration de geometry sur gegeom
   27/4/2019
