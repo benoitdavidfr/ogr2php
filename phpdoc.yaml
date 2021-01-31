@@ -8,7 +8,6 @@ doc: |
   Le module exploite:
     - la bibliothèque Ogr et le package gegeom qui gère la géométrie WKT/GeoJSON ;
     - la possibilité pour ogr2ogr de générer des données en GeoJSON.
-    - yamldoc pour stocker les définitions de bases de données géographiques.
     - le package /phplib/sql.inc.php comme interface avec la BD ;
       les paramètres de connexion à la BD sont stockés dans le fichier sqlparams.inc.php
 journal: |
@@ -32,8 +31,8 @@ journal: |
   29/5/2016
     - première version
 requires:
+  - /phplib/sql.inc.php
   - /geovect/gegeom
-  - /geovect/geometry
 htmlFiles:
 phpScripts:
   - /geovect/ogr2php/sqlloader.php

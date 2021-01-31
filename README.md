@@ -11,7 +11,7 @@ Ce package est composée de 2 parties :
 Le package nécessite:
 
   - le [composant Yaml de Symfony](https://symfony.com/doc/current/components/yaml.html) à installer avec composer,
-  - le [module geometry](https://github.com/benoitdavidfr/geometry) qui gère la géométrie WKT/GeoJSON,
+  - le [module gegeom](https://github.com/benoitdavidfr/geovect/tree/master/gegeom) qui gère la géométrie WKT/GeoJSON,
   - la [classe SQL](https://github.com/benoitdavidfr/phplib/blob/master/sql.inc.php)
     du [module phplib](https://github.com/benoitdavidfr/phplib) qui simplifie l'interface avec MySQL.
 

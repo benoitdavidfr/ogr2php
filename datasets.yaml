@@ -125,6 +125,8 @@ $schema:
       patternProperties:
         ^[-a-zA-Z0-9_]*$:
           $ref: '#/definitions/dataset'
+    eof:
+      type: 'null'
       
 datasets:
   route500-2020:
@@ -310,4 +312,324 @@ datasets:
           nature: multiple
     sqlSchemas: # nom du schema SQL (base MySql ou base + schema PgSql) en fonction de l'URI du serveur SQL
       mysql://root@172.17.0.3: route500_2019 # MySql docker
-eof:
+
+  ne_110m_cultural:
+    title: Natural Earth, 1:110m scale, Cultural Vector Data Themes, version 4.1.0
+    publisher: naturalearthdata.com
+    issued: '2018-05-23'
+    identifier: https://www.naturalearthdata.com/downloads/110m-cultural-vectors/
+    precision: 3 # J'arrondis les coordonnées à 3 décimales, 2 est insuffisant
+    dbpath: naturalearth/110m_cultural
+    layers:
+      # Admin 0 – Boundary Lines
+      admin_0_boundary_lines_land:
+        title: Land boundaries
+        ogrPath: ne_110m_admin_0_boundary_lines_land.shp
+        idpkey: true
+      admin_0_pacific_groupings:
+        title: Pacific grouping boxes
+        ogrPath: ne_110m_admin_0_pacific_groupings.shp
+        idpkey: true
+      # Admin 0 – Countries
+      admin_0_countries:
+        title: Countries
+        ogrPath: ne_110m_admin_0_countries.shp
+        idpkey: true
+        excludedFields:
+          - SOVEREIGNT
+          - SOV_A3
+          - GEOU_DIF
+          - GEOUNIT
+          - GU_A3
+          - BRK_DIFF
+          - BRK_A3
+          - BRK_NAME
+          - BRK_GROUP
+          - NAME_CIAWF
+          - NOTE_BRK
+          - MAPCOLOR7
+          - MAPCOLOR8
+          - MAPCOLOR9
+          - MAPCOLOR13
+          - ECONOMY
+          - INCOME_GRP
+          - WIKIPEDIA
+          - FIPS_10_
+          - ISO_A3_EH
+          - ISO_N3
+          - UN_A3
+          - WB_A2
+          - WB_A3
+          - WOE_ID
+          - WOE_ID_EH
+          - WOE_NOTE
+          - ADM0_A3_IS
+          - ADM0_A3_US
+          - ADM0_A3_UN
+          - ADM0_A3_WB
+          - REGION_WB
+          - NAME_LEN
+          - LONG_LEN
+          - ABBREV_LEN
+          - TINY
+          - HOMEPART
+          - MIN_ZOOM
+          - MIN_LABEL
+          - MAX_LABEL
+          - NE_ID
+          - WIKIDATAID
+          - NAME_AR
+          - NAME_BN
+          - NAME_DE
+          - NAME_ES
+          - NAME_EL
+          - NAME_HI
+          - NAME_HU
+          - NAME_ID
+          - NAME_IT
+          - NAME_JA
+          - NAME_KO
+          - NAME_NL
+          - NAME_PL
+          - NAME_PT
+          - NAME_RU
+          - NAME_SV
+          - NAME_TR
+          - NAME_VI
+          - NAME_ZH
+      # pays dont ont été enlevés les grands lacs
+      admin_0_countries_lakes:
+        title: Countries without boundary lakes
+        ogrPath: ne_110m_admin_0_countries_lakes.shp
+        idpkey: true
+        excludedFields:
+          - SOVEREIGNT
+          - SOV_A3
+          - GEOU_DIF
+          - GEOUNIT
+          - GU_A3
+          - BRK_DIFF
+          - BRK_A3
+          - BRK_NAME
+          - BRK_GROUP
+          - NAME_CIAWF
+          - NOTE_BRK
+          - MAPCOLOR7
+          - MAPCOLOR8
+          - MAPCOLOR9
+          - MAPCOLOR13
+          - ECONOMY
+          - INCOME_GRP
+          - WIKIPEDIA
+          - FIPS_10_
+          - ISO_A3_EH
+          - ISO_N3
+          - UN_A3
+          - WB_A2
+          - WB_A3
+          - WOE_ID
+          - WOE_ID_EH
+          - WOE_NOTE
+          - ADM0_A3_IS
+          - ADM0_A3_US
+          - ADM0_A3_UN
+          - ADM0_A3_WB
+          - REGION_WB
+          - NAME_LEN
+          - LONG_LEN
+          - ABBREV_LEN
+          - TINY
+          - HOMEPART
+          - MIN_ZOOM
+          - MIN_LABEL
+          - MAX_LABEL
+          - NE_ID
+          - WIKIDATAID
+          - NAME_AR
+          - NAME_BN
+          - NAME_DE
+          - NAME_ES
+          - NAME_EL
+          - NAME_HI
+          - NAME_HU
+          - NAME_ID
+          - NAME_IT
+          - NAME_JA
+          - NAME_KO
+          - NAME_NL
+          - NAME_PL
+          - NAME_PT
+          - NAME_RU
+          - NAME_SV
+          - NAME_TR
+          - NAME_VI
+          - NAME_ZH
+      # Admin 0 – Details
+      admin_0_sovereignty:
+        title: Sovereignty
+        ogrPath: ne_110m_admin_0_sovereignty.shp
+        idpkey: true
+      admin_0_map_units:
+        title: Map units
+        ogrPath: ne_110m_admin_0_map_units.shp
+        idpkey: true
+        excludedFields:
+          - SOVEREIGNT
+          - SOV_A3
+          - GEOU_DIF
+          - GEOUNIT
+          - GU_A3
+          - BRK_DIFF
+          - BRK_A3
+          - BRK_NAME
+          - BRK_GROUP
+          - NAME_CIAWF
+          - NOTE_BRK
+          - MAPCOLOR7
+          - MAPCOLOR8
+          - MAPCOLOR9
+          - MAPCOLOR13
+          - ECONOMY
+          - INCOME_GRP
+          - WIKIPEDIA
+          - FIPS_10_
+          - ISO_A3_EH
+          - ISO_N3
+          - UN_A3
+          - WB_A2
+          - WB_A3
+          - WOE_ID
+          - WOE_ID_EH
+          - WOE_NOTE
+          - ADM0_A3_IS
+          - ADM0_A3_US
+          - ADM0_A3_UN
+          - ADM0_A3_WB
+          - REGION_WB
+          - NAME_LEN
+          - LONG_LEN
+          - ABBREV_LEN
+          - TINY
+          - HOMEPART
+          - MIN_ZOOM
+          - MIN_LABEL
+          - MAX_LABEL
+          - NE_ID
+          - WIKIDATAID
+          - NAME_AR
+          - NAME_BN
+          - NAME_DE
+          - NAME_ES
+          - NAME_EL
+          - NAME_HI
+          - NAME_HU
+          - NAME_ID
+          - NAME_IT
+          - NAME_JA
+          - NAME_KO
+          - NAME_NL
+          - NAME_PL
+          - NAME_PT
+          - NAME_RU
+          - NAME_SV
+          - NAME_TR
+          - NAME_VI
+          - NAME_ZH
+      admin_0_scale_rank:
+        title: admin_0_scale_rank
+        ogrPath: ne_110m_admin_0_scale_rank.shp
+        idpkey: true
+      admin_0_tiny_countries:
+        title: Tiny country points
+        ogrPath: ne_110m_admin_0_tiny_countries.shp
+        idpkey: true
+      # Admin 1 – States, Provinces
+      admin_1_states_provinces:
+        title: States and provinces
+        ogrPath: ne_110m_admin_1_states_provinces.shp
+        idpkey: true
+      admin_1_states_provinces_lakes:
+        title: States and provinces without large lakes
+        ogrPath: ne_110m_admin_1_states_provinces_lakes.shp
+        idpkey: true
+      admin_1_states_provinces_lines:
+        title: State and province boundaries
+        ogrPath: ne_110m_admin_1_states_provinces_lines.shp
+        idpkey: true
+      admin_1_states_provinces_scale_rank:
+        title: States and provinces whith scale rank
+        ogrPath: ne_110m_admin_1_states_provinces_scale_rank.shp
+        idpkey: true
+      # Populated Places
+      populated_places:
+        title: City and town points
+        ogrPath: ne_110m_populated_places.shp
+        idpkey: true
+      populated_places_simple:
+        title: City and town points (with less fields)
+        ogrPath: ne_110m_populated_places_simple.shp
+        idpkey: true
+    sqlSchemas: # nom du schema SQL (base MySql ou base + schema PgSql) en fonction de l'URI du serveur SQL
+      mysql://root@172.17.0.3: ne_110m_cultural # MySql docker
+      mysql://bdavid@mysql-bdavid.alwaysdata.net: bdavid_ne_110m_cultural
+  ne_110m_physical:
+    title: Natural Earth, 1:110m scale, Physical Vector Data Themes, version 4.1.0
+    publisher: naturalearthdata.com
+    issued: '2018-05-23'
+    identifier: https://www.naturalearthdata.com/downloads/110m-physical-vectors/
+    precision: 3 # J'arrondis les coordonnées à 3 décimales, 2 est insuffisant
+    dbpath: naturalearth/110m_physical
+    layers:
+      coastline:
+        title: coastline
+        ogrPath: ne_110m_coastline.shp
+        idpkey: true
+      land:
+        title: land
+        ogrPath: ne_110m_land.shp
+        idpkey: true
+      ocean:
+        title: ocean
+        ogrPath: ne_110m_ocean.shp
+        idpkey: true
+      rivers_lake_centerlines:
+        title: Rivers and lake centerlines
+        ogrPath: ne_110m_rivers_lake_centerlines.shp
+        idpkey: true
+      geographic_lines:
+        title: geographic_lines
+        ogrPath: ne_110m_geographic_lines.shp
+        idpkey: true
+      geography_marine_polys:
+        title: geography_marine_polys
+        ogrPath: ne_110m_geography_marine_polys.shp
+        idpkey: true
+      geography_regions_elevation_points:
+        title: geography_regions_elevation_points
+        ogrPath: ne_110m_geography_regions_elevation_points.shp
+        idpkey: true
+      geography_regions_points:
+        title: geography_regions_points
+        ogrPath: ne_110m_geography_regions_points.shp
+        idpkey: true
+      geography_regions_polys:
+        title: geography_regions_polys
+        ogrPath: ne_110m_geography_regions_polys.shp
+        idpkey: true
+      glaciated_areas:
+        title: glaciated_areas
+        ogrPath: ne_110m_glaciated_areas.shp
+        idpkey: true
+      lakes:
+        title: lakes
+        ogrPath: ne_110m_lakes.shp
+        idpkey: true
+      wgs84_bounding_box:
+        title: wgs84_bounding_box
+        ogrPath: ne_110m_wgs84_bounding_box.shp
+        idpkey: true
+    sqlSchemas: # nom du schema SQL (base MySql ou base + schema PgSql) en fonction de l'URI du serveur SQL
+      mysql://root@172.17.0.3: ne_110m_physical # MySql docker
+      mysql://bdavid@mysql-bdavid.alwaysdata.net: bdavid_ne_110m_physical
+
+eof: null
