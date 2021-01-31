@@ -5,17 +5,15 @@ title: sqlloader.php - module générique de chargement d'un jeu de données dan
 classes:
 doc: |
   Script en 2 parties:
-    1) Définition d'une classe SqlLoader qui met en oeuvre un chargeur SQL en fonction de paramètres du produit
-       à charger. Utilisation systématique du type Geometry
-    2) Mise en oeuvre du script pour effectuer le chargement de qqs produits définis dans YamlDoc
+    1) Définition d'une classe SqlLoader pour charger dans une base SQL des fichiers OGR d'un jeu de données en fonction
+       de paramètres du jeu de données à charger dans datasets.yaml. Utilisation systématique du type Geometry
+    2) Mise en oeuvre du script pour effectuer le chargement de qqs jeux de données définis dans datasets.yaml
   
-  A voir:
-    - enregistrer la version du produit et la date de son chargement en commentaire dans chaque table ?
-
 journal: |
   29-30/1/2021:
     - suppression de l'utilisation de YamlDoc et utilisation à la place un fichier datasets.yaml qui liste les produits
     - restructuration du code autour d'une classe représentant à JD à charger
+    - enregistrement de la version du jeu de données et la date de son chargement en commentaire dans chaque table
   6/5/2019:
     - migration de geometry sur gegeom
     - lorsque la géométrie est trop petite, une erreur particulière est affichée au chargement
@@ -72,7 +70,7 @@ includes: [ '../../phplib/sql.inc.php', ogr2php.inc.php, sqlparams.inc.php ]
 */
 //$version = "6/10/2018 18:00";
 //$version = "27/4/2019 5:00";
-$version = "29/1/2021 4:00";
+$version = "30/1/2021 20:00";
 
 require_once __DIR__.'/../vendor/autoload.php';
 require_once __DIR__.'/../../phplib/sql.inc.php';
